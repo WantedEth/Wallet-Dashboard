@@ -5,23 +5,88 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Wallet Dashboard | Multi-Chain Tracker</title>
 <style>
-body { font-family: Arial, sans-serif; background:#f5f7fa; margin:0; padding:20px; }
-h1 { text-align:center; color:#2b2b2b; margin-bottom:20px; }
-.controls { margin-bottom:15px; display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; }
-.controls input[type=text], .controls input[type=file] { padding:5px; flex:1; min-width:150px; }
-.controls label { display:flex; align-items:center; gap:5px; font-size:0.9em; }
-button { padding:5px 10px; cursor:pointer; }
-table { width:100%; border-collapse:collapse; background:white; overflow-x:auto; display:block; }
-th, td { border:1px solid #ccc; padding:8px; text-align:center; font-size:0.9em; white-space:nowrap; }
-th { background:#007bff; color:white; cursor:pointer; position:sticky; top:0; }
-tbody tr:hover { background:#f0f4ff; }
+body { 
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+  background:#1e1e2f; 
+  color:#eee; 
+  margin:0; 
+  padding:20px; 
+}
+h1 { 
+  text-align:center; 
+  color:#fff; 
+  margin-bottom:20px; 
+  text-shadow:0 0 5px #00bfff; 
+}
+.controls { 
+  margin-bottom:15px; 
+  display:flex; 
+  flex-wrap:wrap; 
+  gap:10px; 
+  justify-content:space-between; 
+}
+.controls input[type=text], .controls input[type=file], button { 
+  padding:8px; 
+  flex:1; 
+  min-width:150px; 
+  border-radius:5px; 
+  border:none; 
+  background:#2b2b3c; 
+  color:#fff; 
+}
+.controls input[type=text]:focus { outline:2px solid #00bfff; }
+button { background:#00bfff; transition:0.3s; }
+button:hover { background:#0095d1; }
+
+table { 
+  width:100%; 
+  border-collapse:collapse; 
+  background:#2b2b3c; 
+  overflow-x:auto; 
+  display:block; 
+  border-radius:8px; 
+}
+th, td { 
+  border:1px solid #444; 
+  padding:10px; 
+  text-align:center; 
+  font-size:0.9em; 
+  white-space:nowrap; 
+}
+th { 
+  background:#0a0a23; 
+  color:#00bfff; 
+  cursor:pointer; 
+  position:sticky; 
+  top:0; 
+  text-shadow:0 0 2px #000; 
+}
+tbody tr:hover { background:#3a3a55; transition:0.2s; }
+
+.eth { background:linear-gradient(90deg,#4b0082,#6a0dad); color:#fff; }
+.bsc { background:linear-gradient(90deg,#ff8000,#ffbf00); color:#fff; }
+.poly { background:linear-gradient(90deg,#008000,#00cc66); color:#fff; }
+.base { background:linear-gradient(90deg,#8b0000,#ff4d4d); color:#fff; }
+
+.balance-bar { display:inline-block; height:10px; border-radius:5px; margin-left:5px; vertical-align:middle; }
+
 .pagination { margin-top:10px; text-align:center; }
-.pagination button { margin:0 5px; padding:5px 10px; cursor:pointer; }
-.eth { background:#f0e6ff; }
-.bsc { background:#fff4e6; }
-.poly { background:#e6fff5; }
-.base { background:#ffe6e6; }
-@media(max-width:768px){ table { font-size:0.8em; } .controls{ flex-direction:column; } }
+.pagination button { 
+  margin:0 5px; 
+  padding:5px 12px; 
+  cursor:pointer; 
+  border-radius:5px; 
+  border:none; 
+  background:#00bfff; 
+  color:#fff; 
+  transition:0.3s; 
+}
+.pagination button:hover { background:#0095d1; }
+
+@media(max-width:768px){ 
+  table { font-size:0.8em; } 
+  .controls{ flex-direction:column; } 
+}
 </style>
 </head>
 <body>
@@ -75,7 +140,6 @@ let walletData = [];
 const pageSize = 100;
 let currentPage = 1;
 
-// Fetch RPC JSON
 async function rpcCall(chain, method, params){
   try{
     const res = await fetch(CHAINS[chain].rpc, {
@@ -88,13 +152,11 @@ async function rpcCall(chain, method, params){
   }catch(e){ return null; }
 }
 
-// Get balance
 async function getBalance(chain,address){
   const result = await rpcCall(chain,"eth_getBalance",[address,"latest"]);
   return result? parseInt(result,16)/1e18 : null;
 }
 
-// Get transaction count
 async function getTxCount(chain,address){
   const result = await rpcCall(chain,"eth_getTransactionCount",[address,"latest"]);
   return result? parseInt(result,16) : null;
@@ -112,7 +174,6 @@ document.getElementById('loadFile').addEventListener('click', ()=>{
   reader.readAsText(file);
 });
 
-// Load balances and transactions
 async function loadWalletData(){
   walletData = [];
   const tbody = document.getElementById("table-body");
@@ -131,7 +192,6 @@ async function loadWalletData(){
   renderTable();
 }
 
-// Render table
 function renderTable(){
   const tbody = document.getElementById("table-body");
   tbody.innerHTML = "";
@@ -157,13 +217,13 @@ function renderTable(){
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>${w.addr}</td>
-      <td class="eth">${w.ethBal===null?'Error':w.ethBal.toFixed(4)}</td>
+      <td class="eth">${w.ethBal===null?'Error':w.ethBal.toFixed(4)} <span class="balance-bar" style="width:${Math.min(w.ethBal,1)*100}%; background:#8e44ad"></span></td>
       <td class="eth">${w.ethTx===null?'Error':w.ethTx}</td>
-      <td class="bsc">${w.bnbBal===null?'Error':w.bnbBal.toFixed(4)}</td>
+      <td class="bsc">${w.bnbBal===null?'Error':w.bnbBal.toFixed(4)} <span class="balance-bar" style="width:${Math.min(w.bnbBal,1)*100}%; background:#e67e22"></span></td>
       <td class="bsc">${w.bnbTx===null?'Error':w.bnbTx}</td>
-      <td class="poly">${w.polyBal===null?'Error':w.polyBal.toFixed(4)}</td>
+      <td class="poly">${w.polyBal===null?'Error':w.polyBal.toFixed(4)} <span class="balance-bar" style="width:${Math.min(w.polyBal,1)*100}%; background:#27ae60"></span></td>
       <td class="poly">${w.polyTx===null?'Error':w.polyTx}</td>
-      <td class="base">${w.baseBal===null?'Error':w.baseBal.toFixed(4)}</td>
+      <td class="base">${w.baseBal===null?'Error':w.baseBal.toFixed(4)} <span class="balance-bar" style="width:${Math.min(w.baseBal,1)*100}%; background:#c0392b"></span></td>
       <td class="base">${w.baseTx===null?'Error':w.baseTx}</td>
     `;
     tbody.appendChild(row);
@@ -172,15 +232,13 @@ function renderTable(){
   document.getElementById("page-info").textContent = `Page ${currentPage} / ${Math.ceil(filtered.length/pageSize)}`;
 }
 
-// Pagination buttons
 document.getElementById("prev").onclick = ()=>{ if(currentPage>1){ currentPage--; renderTable(); } };
 document.getElementById("next").onclick = ()=>{ if(currentPage*pageSize<walletData.length){ currentPage++; renderTable(); } };
 
-// Filters and search
 document.getElementById("search").addEventListener("input",()=>{ currentPage=1; renderTable(); });
 document.getElementById("filterNonZero").addEventListener("change",()=>{ currentPage=1; renderTable(); });
 document.getElementById("filterTx").addEventListener("change",()=>{ currentPage=1; renderTable(); });
-
 </script>
+
 </body>
 </html>
