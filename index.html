@@ -1,546 +1,476 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Wallet Dashboard · Multi-Chain (Enhanced)</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Wallet Dashboard · Multi-Chain (V2 + Tokens)</title>
 <style>
-/* Same deep professional theme you had, with small additions */
-body {font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#0e1220; color:#e6eef8; margin:0; padding:18px;}
-h1 {text-align:center; color:#58d1ff; margin-bottom:14px; text-shadow:0 0 8px #00bfff;}
-.controls {display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; align-items:center;}
-.controls input[type=text], .controls input[type=file], button, .controls select {padding:10px; border-radius:8px; border:1px solid #233044; background:#121826; color:#e6eef8; min-width:140px; flex:1;}
-button {background:#00a7ff; cursor:pointer; border:none;}
-button:hover {background:#008ed6;}
-table {width:100%; border-collapse:collapse; background:#0f1826; margin-top:8px; border-radius:10px; overflow:hidden;}
-th, td {padding:10px 8px; border-bottom:1px solid #1f2b3b; text-align:center; font-size:13px; white-space:nowrap;}
-th {background:#08101a; color:#7fe6ff; position:sticky; top:0; z-index:5;}
-tbody tr:hover {background:#162434;}
-.chain-native { font-weight:700; }
-.eth { color:#b58bff } .bsc { color:#ffd97a } .poly { color:#6effd4 } .base { color:#ff8b8b }
-.small { font-size:12px; color:#bcd4ea; }
-.indicator { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:middle; }
-.green { background:#2ecc71 } .orange { background:#f39c12 } .red { background:#e74c3c }
-.page-controls { text-align:center; margin-top:12px; }
-.pagination button{ margin:0 6px; padding:6px 12px; border-radius:6px; }
-.token-list { text-align:left; max-height:200px; overflow:auto; padding:6px; background:#09111a; border-radius:6px; margin-top:6px; }
-.token-item { padding:6px 4px; border-bottom:1px dashed #12202b; }
-.controls-row { display:flex; gap:8px; width:100%; }
-@media(max-width:780px){ .controls-row{ flex-direction:column } table{ font-size:12px } }
+  /* Clean dark theme (mobile friendly) */
+  body{font-family:Segoe UI,system-ui,Arial,sans-serif;background:#071022;color:#dcefff;margin:0;padding:18px}
+  h1{color:#58d1ff;text-align:center;margin:6px 0 18px 0}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center}
+  .controls input,.controls select,button{padding:10px;border-radius:8px;border:1px solid #0f2638;background:#081420;color:#eaf6ff;min-width:140px}
+  button{background:#00a7ff;border:0;cursor:pointer}
+  button:hover{background:#008ed6}
+  table{width:100%;border-collapse:collapse;background:#071827;border-radius:10px;overflow:hidden;margin-top:6px}
+  th,td{padding:10px;border-bottom:1px solid #0f2638;text-align:center;white-space:nowrap;font-size:13px}
+  th{background:#03101a;color:#7fe6ff;position:sticky;top:0}
+  tbody tr:hover{background:#0b2233}
+  .eth{color:#b58bff}.bsc{color:#ffd463}.poly{color:#6effd4}.base{color:#ff8b8b}
+  .small{font-size:12px;color:#a9cbe0}
+  .indicator{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .green{background:#2ecc71}.orange{background:#f39c12}.red{background:#e74c3c}
+  .token-list{font-size:12px;text-align:left;padding:6px;background:#04121a;border-radius:6px;max-height:180px;overflow:auto}
+  .token-item{padding:6px 4px;border-bottom:1px dashed #08232d}
+  .page-controls{margin-top:12px;text-align:center}
+  .page-controls button{padding:8px 12px;margin:0 6px}
+  @media(max-width:800px){table{font-size:12px} .controls{flex-direction:column}}
 </style>
 </head>
 <body>
+<h1>💎 Wallet Dashboard — Multi-Chain (V2 + Tokens)</h1>
 
-<h1>💎 Wallet Dashboard · Multi-Chain (Enhanced)</h1>
-
-<div class="controls controls-row">
-  <input id="fileInput" type="file" accept=".txt" />
+<div class="controls">
+  <input id="fileInput" type="file" accept=".txt">
   <button id="loadFile">Load wallets.txt</button>
-  <input id="search" type="text" placeholder="Search address..." />
-  <select id="pageSizeSelect">
-    <option value="50">50 / page</option>
-    <option value="100" selected>100 / page</option>
-    <option value="200">200 / page</option>
-  </select>
-  <label class="small"><input id="autoRefreshToggle" type="checkbox" checked /> Auto refresh (5s)</label>
+  <input id="search" type="text" placeholder="Search address...">
+  <select id="pageSize"><option>50</option><option selected>100</option><option>200</option></select>
+  <label class="small"><input id="autoToggle" type="checkbox" checked> Auto refresh (5s)</label>
 </div>
 
 <div class="controls">
-  <label class="small"><input id="filterBal" type="checkbox" /> Non-zero</label>
-  <label class="small"><input id="filterTx" type="checkbox" /> Has tx</label>
+  <label class="small"><input id="filterNonZero" type="checkbox"> Non-zero</label>
+  <label class="small"><input id="filterHasTx" type="checkbox"> Has tx</label>
   <button id="exportCsv">Export CSV</button>
-  <div style="flex:1;text-align:right" class="small">Price source: CoinGecko • API: Etherscan V2</div>
+  <div style="flex:1;text-align:right" class="small">Prices: CoinGecko (best-effort token prices)</div>
 </div>
 
 <table>
 <thead>
 <tr>
   <th>Address</th>
-  <th class="eth">ETH (native)</th>
-  <th class="eth">ETH tx</th>
-  <th class="eth">ERC20 tokens</th>
-  <th class="bsc">BNB (native)</th>
-  <th class="bsc">BNB tx</th>
-  <th class="bsc">BEP20 tokens</th>
-  <th class="poly">Polygon (native)</th>
-  <th class="poly">Polygon tx</th>
-  <th class="poly">ERC20 tokens</th>
-  <th class="base">Base (native)</th>
-  <th class="base">Base tx</th>
-  <th class="base">ERC20 tokens</th>
-  <th>Total USD</th>
-  <th>Avg gas</th>
-  <th>Activity</th>
+  <th class="eth">ETH Bal</th><th class="eth">ETH tx</th><th class="eth">Tokens</th>
+  <th class="bsc">BNB Bal</th><th class="bsc">BNB tx</th><th class="bsc">Tokens</th>
+  <th class="poly">POLY Bal</th><th class="poly">POLY tx</th><th class="poly">Tokens</th>
+  <th class="base">BASE Bal</th><th class="base">BASE tx</th><th class="base">Tokens</th>
+  <th>Total USD</th><th>Avg gas</th><th>Activity</th>
 </tr>
 </thead>
-<tbody id="table-body">
-  <tr><td colspan="16" class="small">No wallets loaded</td></tr>
+<tbody id="tbody">
+<tr><td colspan="16" class="small">No wallets loaded</td></tr>
 </tbody>
 </table>
 
 <div class="page-controls">
   <button id="prev">Prev</button>
-  <span id="pageInfo">Page 0 / 0</span>
+  <span id="pageInfo">Page 0/0</span>
   <button id="next">Next</button>
 </div>
 
 <script>
-/*
-  Enhanced dashboard logic:
-  - Uses Etherscan V2 central endpoint for all chains (single API key).
-  - Uses CoinGecko public API for prices (ETH, BNB, Polygon, Base + tokens if available).
-  - Fetches:
-      - native balance via V2 account.balance
-      - txlist (normal txs) via V2 module=account action=txlist (we fetch up to offsetLimit items)
-      - token transfers via V2 module=account action=tokentx (we fetch up to offsetLimit items)
-  - Computes token balances per wallet by aggregating tokentx (in/out)
-  - Calculates avg gas used from normal txs (gasUsed field)
-  - Auto-refresh every 5s (toggleable)
-  - Batching/delay between wallet requests to reduce rate-limit problems (adjustable)
-*/
+/* --------------------
+   CONFIG
+   -------------------- */
+const API_KEY = "VUZQ4R438NJG2FHZTAF1CZTXMGEUI8DPSF"; // your Etherscan V2 key
+const V2_BASE = "https://api.etherscan.io/v2/api";   // central V2 endpoint
+const COINGECKO_SIMPLE = "https://api.coingecko.com/api/v3/simple/price";
+const TOKEN_PRICE_BY_CONTRACT = "https://api.coingecko.com/api/v3/simple/token_price"; // /{platform}?contract_addresses=...&vs_currencies=usd
 
-const API_KEY = "VUZQ4R438NJG2FHZTAF1CZTXMGEUI8DPSF"; // your key
-const V2_BASE = "https://api.etherscan.io/v2/api";    // Etherscan V2 central endpoint
+const CHAIN = { ETH: 'eth', BSC: 'bsc', POLY: 'polygon', BASE: 'base' };
+const CG_PLATFORM = { eth: 'ethereum', bsc: 'binance-smart-chain', polygon: 'polygon-pos', base: 'base' };
 
-// chain names used by V2
-const CHAIN_NAMES = { ETH: "eth", BSC: "bsc", POLY: "polygon", BASE: "base" };
+/* --------------------
+   UI ELEMENTS
+   -------------------- */
+const fileInput = document.getElementById('fileInput');
+const loadFileBtn = document.getElementById('loadFile');
+const tbody = document.getElementById('tbody');
+const searchEl = document.getElementById('search');
+const pageSizeEl = document.getElementById('pageSize');
+const autoToggle = document.getElementById('autoToggle');
+const filterNonZero = document.getElementById('filterNonZero');
+const filterHasTx = document.getElementById('filterHasTx');
+const prevBtn = document.getElementById('prev');
+const nextBtn = document.getElementById('next');
+const pageInfo = document.getElementById('pageInfo');
+const exportCsvBtn = document.getElementById('exportCsv');
 
-// UI elements
-const fileInput = document.getElementById("fileInput");
-const loadFileBtn = document.getElementById("loadFile");
-const tableBody = document.getElementById("table-body");
-const searchInput = document.getElementById("search");
-const prevBtn = document.getElementById("prev");
-const nextBtn = document.getElementById("next");
-const pageInfo = document.getElementById("pageInfo");
-const pageSizeSelect = document.getElementById("pageSizeSelect");
-const autoRefreshToggle = document.getElementById("autoRefreshToggle");
-const filterBal = document.getElementById("filterBal");
-const filterTx = document.getElementById("filterTx");
-const exportCsvBtn = document.getElementById("exportCsv");
-
-// data
+/* --------------------
+   State & limits
+   -------------------- */
 let addresses = [];
-let walletData = []; // array of {addr, eth:{balance,txCount,tokens,avgGas}, bsc:..., poly:..., base:..., totalUSD, indicator}
+let walletData = []; // processed wallet objects
 let currentPage = 1;
-let pageSize = parseInt(pageSizeSelect.value);
+let pageSize = Number(pageSizeEl.value);
+const PER_WALLET_DELAY = 220;   // ms between wallet processing (tweak if rate-limited)
+const OFFSET_LIMIT = 1000;      // number of tx/tokentx to fetch (per call)
+let autoIntervalId = null;
+const AUTO_MS = 5000;
 
-// configuration & limits
-const offsetLimit = 1000;      // max txs/tokentx we request per call (page size)
-const perWalletDelay = 220;    // ms delay between wallets to reduce quick bursts (adjust if hitting rate limits)
-const autoRefreshMs = 5000;    // 5 seconds
-
-let autorefreshIntervalId = null;
-
-// helper: sleep
-const sleep = (ms) => new Promise(res => setTimeout(res, ms));
-
-// Helper: safe JSON parse
-async function fetchJson(url) {
-  try {
-    const r = await fetch(url);
-    return await r.json();
-  } catch (e) {
-    return null;
-  }
+/* --------------------
+   Small helpers
+   -------------------- */
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+async function fetchJson(url){
+  try{ const r = await fetch(url); return await r.json(); } catch(e){ return null; }
+}
+function v2url(chain, params){
+  return `${V2_BASE}?chain=${chain}&${params}&apikey=${API_KEY}`;
 }
 
-// Build V2 endpoint URL
-function v2Url(chain, moduleActionParams) {
-  // Example: `${V2_BASE}?chain=eth&module=account&action=balance&address=...&apikey=KEY`
-  return `${V2_BASE}?chain=${chain}&${moduleActionParams}&apikey=${API_KEY}`;
-}
-
-// Get native balance via V2
-async function fetchBalance(chain, addr) {
-  const url = v2Url(chain, `module=account&action=balance&address=${addr}`);
+/* --------------------
+   Fetchers (V2 format)
+   -------------------- */
+async function fetchBalance(chain, addr){
+  const url = v2url(chain, `module=account&action=balance&address=${addr}`);
   const j = await fetchJson(url);
-  if (!j || !j.result) return 0;
-  return Number(j.result) / 1e18;
+  if (!j || j.status==='0' && !j.result) return 0;
+  return Number(j.result || 0) / 1e18;
 }
 
-// Get normal transaction list (we request offsetLimit recent txs — good for averages/counts)
-async function fetchTxList(chain, addr) {
-  const url = v2Url(chain, `module=account&action=txlist&address=${addr}&startblock=0&endblock=99999999&page=1&offset=${offsetLimit}&sort=desc`);
+async function fetchTxList(chain, addr){
+  const url = v2url(chain, `module=account&action=txlist&address=${addr}&startblock=0&endblock=99999999&page=1&offset=${OFFSET_LIMIT}&sort=desc`);
   const j = await fetchJson(url);
   if (!j || !Array.isArray(j.result)) return [];
   return j.result;
 }
 
-// Get token transfer history (tokentx)
-async function fetchTokenTx(chain, addr) {
-  const url = v2Url(chain, `module=account&action=tokentx&address=${addr}&startblock=0&endblock=99999999&page=1&offset=${offsetLimit}&sort=desc`);
+async function fetchTokenTx(chain, addr){
+  const url = v2url(chain, `module=account&action=tokentx&address=${addr}&startblock=0&endblock=99999999&page=1&offset=${OFFSET_LIMIT}&sort=desc`);
   const j = await fetchJson(url);
   if (!j || !Array.isArray(j.result)) return [];
   return j.result;
 }
 
-// Aggregate token balances from tokentx array
-function aggregateTokenBalances(tokentxArray, addr) {
-  // tokentx entries include: tokenSymbol, tokenDecimal, value, from, to, contractAddress
-  const map = {}; // contract -> { symbol, decimals, balance (as BigInt scaled) }
-  const lcAddr = addr.toLowerCase();
-
-  for (const t of tokentxArray) {
+/* --------------------
+   Token aggregation: from tokentx entries -> token balances
+   Option A: simple list per wallet (symbol: balance)
+   -------------------- */
+function aggregateTokens(tokentx, addr){
+  const map = {};
+  const lc = addr.toLowerCase();
+  for (const t of tokentx){
+    // fields differ by explorer, support both tokenDecimal/tokenDecimals etc.
     const contract = (t.contractAddress || t.tokenAddress || "").toLowerCase();
     if (!contract) continue;
-    const dec = Number(t.tokenDecimal || 0);
-    const sym = t.tokenSymbol || contract.slice(0,6);
-
-    // value may be string of integer in smallest unit
-    const valStr = t.value || "0";
-    // treat as BigInt-like arithmetic using JS BigInt if available
-    // Convert to BigInt
-    let valBig;
-    try { valBig = BigInt(valStr.toString()); } catch(e) { valBig = BigInt(0); }
-
-    // determine direction: if tx.to == this addr => +, if tx.from == this addr => -
-    const isIn = (t.to || "").toLowerCase() === lcAddr;
-    const isOut = (t.from || "").toLowerCase() === lcAddr;
-
-    if (!map[contract]) map[contract] = { symbol: sym, decimals: dec, balance: BigInt(0), contract };
-    if (isIn && !isOut) {
-      map[contract].balance += valBig;
-    } else if (isOut && !isIn) {
-      map[contract].balance -= valBig;
-    } else if (isIn && isOut) {
-      // internal transfer (same address) — ignore
-    } else {
-      // Could be logs unrelated; check topics? skip
+    const decimals = Number(t.tokenDecimal || t.tokenDecimals || 0);
+    const symbol = t.tokenSymbol || (contract.slice(0,6));
+    // value string in smallest unit
+    let valStr = t.value || "0";
+    // BigInt arithmetic
+    let v = BigInt(valStr || "0");
+    // direction: if to==addr => IN, if from==addr => OUT
+    const to = (t.to || "").toLowerCase();
+    const from = (t.from || "").toLowerCase();
+    if (!map[contract]) map[contract] = {contract, symbol, decimals, balance: 0n};
+    if (to === lc && from !== lc) {
+      map[contract].balance += v;
+    } else if (from === lc && to !== lc) {
+      map[contract].balance -= v;
+    } else if (to === lc && from === lc) {
+      // internal transfer — ignore
     }
   }
-
-  // convert to float numbers using decimals
+  // convert to float numbers
   const tokens = [];
-  for (const k in map) {
-    const entry = map[k];
-    // convert BigInt to number with decimals safely (may lose precision for huge numbers, but fine for display)
-    const denom = 10n ** BigInt(entry.decimals || 0);
-    let floatVal = 0;
-    if (denom > 0n) {
-      // produce string decimal
-      const integerPart = entry.balance / denom;
-      const fractional = entry.balance % denom;
-      const fracStr = fractional.toString().padStart(Number(entry.decimals||0),'0').replace(/0+$/,'');
-      floatVal = Number(integerPart.toString() + (fracStr ? '.' + fracStr.slice(0,6) : ''));
-    } else {
-      floatVal = Number(entry.balance.toString());
-    }
-    // Round to sensible decimals
-    floatVal = Math.round(floatVal * 1e6) / 1e6;
-    if (floatVal !== 0) {
-      tokens.push({ contract: entry.contract, symbol: entry.symbol, decimals: entry.decimals, balance: floatVal });
-    }
+  for (const k in map){
+    const e = map[k];
+    if (e.balance === 0n) continue;
+    // convert to float string with decimals (safeish)
+    const denom = 10n ** BigInt(e.decimals || 0);
+    const intPart = e.balance / denom;
+    const frac = e.balance % denom;
+    let fracStr = frac.toString().padStart(Number(e.decimals||0),'0');
+    fracStr = fracStr.replace(/0+$/,''); // trim trailing zeros
+    let num = Number(intPart.toString() + (fracStr?'.'+fracStr.slice(0,6):''));
+    num = Math.round(num * 1e6)/1e6;
+    if (num !== 0) tokens.push({contract: e.contract, symbol: e.symbol, balance: num, decimals: e.decimals});
   }
   return tokens;
 }
 
-// Fetch USD prices for native coins and tokens via CoinGecko
-// We'll map: ethereum, binancecoin, polygon, base
-async function fetchPrices(symbols) {
-  // symbols is array of coin ids or token contract addresses
-  // We'll call CoinGecko simple/price for main coins and contract endpoints for tokens on ethereum
-  const prices = {}; // key -> usd
-  try {
-    // native coins
-    const coinIds = ['ethereum','binancecoin','polygon','base']; // note: 'base' may exist on Coingecko; if not returns undefined
-    const q = `https://api.coingecko.com/api/v3/simple/price?ids=${coinIds.join(',')}&vs_currencies=usd`;
-    const j = await fetchJson(q);
-    if (j) {
-      if (j.ethereum) prices['ETH'] = j.ethereum.usd;
-      if (j.binancecoin) prices['BNB'] = j.binancecoin.usd;
-      if (j.polygon) prices['POLY'] = j.polygon.usd;
-      if (j.base) prices['BASE'] = j.base.usd;
-    }
-  } catch(e) {
-    // ignore
+/* --------------------
+   Batch price lookups (CoinGecko)
+   - native coins via simple/price
+   - token prices by platform using /simple/token_price/{platform}
+   -------------------- */
+async function fetchNativePrices(){
+  // coin ids
+  const ids = ['ethereum','binancecoin','polygon','base'].join(',');
+  const url = `${COINGECKO_SIMPLE}?ids=${ids}&vs_currencies=usd`;
+  const j = await fetchJson(url);
+  const res = { ETH:0, BNB:0, POLY:0, BASE:0 };
+  if (j){
+    if (j.ethereum) res.ETH = j.ethereum.usd || 0;
+    if (j.binancecoin) res.BNB = j.binancecoin.usd || 0;
+    if (j.polygon) res.POLY = j.polygon.usd || 0;
+    if (j.base) res.BASE = j.base.usd || 0;
   }
-  return prices;
+  return res;
 }
 
-// Compute activity indicator
-function computeIndicator(totalUsd, totalTxCount, avgGas) {
-  // simple rules:
-  // green: totalUsd >= $10 or totalTxCount >= 10
-  // orange: totalUsd > 0 or totalTxCount > 0
-  // red: both zero
-  if ((totalUsd || 0) >= 10 || (totalTxCount || 0) >= 10) return 'green';
-  if ((totalUsd || 0) > 0 || (totalTxCount || 0) > 0) return 'orange';
-  return 'red';
-}
-
-// worker to fetch all data for a single wallet (all chains)
-async function processWallet(addr) {
-  const result = { addr };
-
-  // fetch native balances in parallel
-  const [ethBal, bscBal, polyBal, baseBal] = await Promise.all([
-    fetchBalance(CHAIN_NAMES.ETH, addr),
-    fetchBalance(CHAIN_NAMES.BSC, addr),
-    fetchBalance(CHAIN_NAMES.POLY, addr),
-    fetchBalance(CHAIN_NAMES.BASE, addr),
-  ]);
-  result.eth = { balance: ethBal || 0 };
-  result.bsc = { balance: bscBal || 0 };
-  result.poly = { balance: polyBal || 0 };
-  result.base = { balance: baseBal || 0 };
-
-  // fetch normal txs and token txs for each chain (limited by offsetLimit)
-  // We'll do them sequentially per chain to avoid bursts
-  for (const [chainKey, chainName] of Object.entries(CHAIN_NAMES)) {
-    // normal txs
-    const txs = await fetchTxList(chainName, addr).catch(()=>[]);
-    const tokenTxs = await fetchTokenTx(chainName, addr).catch(()=>[]);
-
-    // compute txCount = number of normal txs (we have up to offsetLimit results)
-    const txCount = (Array.isArray(txs) ? txs.length : 0);
-    // compute avg gas used from txs
-    let avgGas = null;
-    if (Array.isArray(txs) && txs.length) {
-      // gasUsed field may exist (from V2 txlist). Use gasUsed numeric
-      let sum = 0;
-      let count = 0;
-      for (const t of txs) {
-        const gu = Number(t.gasUsed || t.gas || 0);
-        if (!isNaN(gu)) { sum += gu; count++; }
+// token prices by chain: accepts array of contracts and platform id
+async function fetchTokenPricesForPlatform(platform, contracts){
+  // contracts: array of lowercased addresses
+  if (!contracts.length) return {};
+  const chunkSize = 50; // coinGecko supports multiple but avoid too long URLs
+  const out = {};
+  for (let i=0;i<contracts.length;i+=chunkSize){
+    const slice = contracts.slice(i,i+chunkSize).join(',');
+    const url = `${TOKEN_PRICE_BY_CONTRACT}/${platform}?contract_addresses=${slice}&vs_currencies=usd`;
+    const j = await fetchJson(url);
+    if (j){
+      for (const k in j) {
+        const key = k.toLowerCase();
+        out[key] = (j[k].usd || 0);
       }
-      if (count>0) avgGas = Math.round((sum / count));
     }
+    await sleep(350); // small delay to avoid rate limits
+  }
+  return out;
+}
 
-    // aggregate token balances from tokenTxs
-    const tokens = aggregateTokenBalances(Array.isArray(tokenTxs) ? tokenTxs : [], addr);
+/* --------------------
+   Process one wallet (all chains)
+   -------------------- */
+async function processWallet(addr){
+  const res = { addr };
+  // 1) native balances
+  const [eB, bB, pB, baB] = await Promise.all([
+    fetchBalance(CHAIN.ETH, addr),
+    fetchBalance(CHAIN.BSC, addr),
+    fetchBalance(CHAIN.POLY, addr),
+    fetchBalance(CHAIN.BASE, addr)
+  ]);
+  res.eth = { balance: eB };
+  res.bsc = { balance: bB };
+  res.poly = { balance: pB };
+  res.base = { balance: baB };
 
-    // attach to result object
-    if (chainKey === 'ETH') {
-      result.eth.txCount = txCount;
-      result.eth.avgGas = avgGas;
-      result.eth.tokens = tokens;
-    } else if (chainKey === 'BSC') {
-      result.bsc.txCount = txCount;
-      result.bsc.avgGas = avgGas;
-      result.bsc.tokens = tokens;
-    } else if (chainKey === 'POLY') {
-      result.poly.txCount = txCount;
-      result.poly.avgGas = avgGas;
-      result.poly.tokens = tokens;
-    } else if (chainKey === 'BASE') {
-      result.base.txCount = txCount;
-      result.base.avgGas = avgGas;
-      result.base.tokens = tokens;
+  // 2) fetch txs and token txs sequentially per chain (to be gentler)
+  // For each chain, get txlist & tokentx -> aggregate tokens & avg gas
+  for (const [chainKey, chainName] of [['eth', CHAIN.ETH], ['bsc', CHAIN.BSC], ['poly', CHAIN.POLY], ['base', CHAIN.BASE]]){
+    // fetch txs & tokentx
+    const [txs, tokentxs] = await Promise.all([
+      fetchTxList(chainName, addr),
+      fetchTokenTx(chainName, addr)
+    ]);
+    // tx count
+    const txCount = Array.isArray(txs) ? txs.length : 0;
+    // avg gas used (if gasUsed field present)
+    let avgGas = null;
+    if (Array.isArray(txs) && txs.length){
+      let sum = 0, cnt = 0;
+      for (const t of txs){
+        const gu = Number(t.gasUsed || t.gas || 0);
+        if (!isNaN(gu) && gu>0){ sum += gu; cnt++; }
+      }
+      if (cnt) avgGas = Math.round(sum/cnt);
     }
-
-    // small delay between chains
+    // aggregate tokens
+    const tokens = aggregateTokens(Array.isArray(tokentxs)?tokentxs:[], addr);
+    res[chainKey] = { balance: res[chainKey].balance || 0, txCount, avgGas, tokens };
     await sleep(80);
   }
-
-  // compute total USD value using CoinGecko prices (native + tokens)
-  // fetch prices (only native coins here for speed). Token USD we'll attempt via contract->coingecko if needed (not implemented fully).
-  const prices = await fetchPrices();
-  const ethPrice = prices['ETH'] || 0;
-  const bnbPrice = prices['BNB'] || 0;
-  const polyPrice = prices['POLY'] || 0;
-  const basePrice = prices['BASE'] || 0;
-
-  // native totals
-  const nativeUsd = (result.eth.balance || 0) * (ethPrice || 0)
-                  + (result.bsc.balance || 0) * (bnbPrice || 0)
-                  + (result.poly.balance || 0) * (polyPrice || 0)
-                  + (result.base.balance || 0) * (basePrice || 0);
-
-  // token totals: we don't have reliable contract->coingecko mapping offline, so sum is approximate (0 if no price)
-  let tokensUsd = 0;
-  // For now, we'll attempt to add token USD only for tokens if we can fetch price by contract on Coingecko (ethereum platform)
-  // But to avoid many requests, we skip token price lookup — set tokensUsd = 0 (you can add per-token lookup if desired)
-  result.totalUSD = Math.round((nativeUsd + tokensUsd) * 100) / 100;
-
-  // compute avgGas overall across chains (weighted)
-  const avgGases = [result.eth.avgGas, result.bsc.avgGas, result.poly.avgGas, result.base.avgGas].filter(v=>typeof v === 'number');
-  result.avgGas = avgGases.length ? Math.round(avgGases.reduce((a,b)=>a+b,0)/avgGases.length) : null;
-
-  // total tx count
-  const totalTxCount = (result.eth.txCount||0) + (result.bsc.txCount||0) + (result.poly.txCount||0) + (result.base.txCount||0);
-  result.totalTxCount = totalTxCount;
-
-  // indicator color
-  result.indicator = computeIndicator(result.totalUSD, totalTxCount, result.avgGas);
-
-  return result;
+  return res;
 }
 
-// Render wallet table page
-function renderTable() {
-  // apply search & filters, paginated
-  const q = (searchInput.value || "").toLowerCase();
-  const filterNonZero = filterBal.checked;
-  const filterHasTx = filterTx.checked;
-
-  const filtered = walletData.filter(w => {
-    if (q && !w.addr.toLowerCase().includes(q)) return false;
-    const totalBal = (w.eth.balance||0) + (w.bsc.balance||0) + (w.poly.balance||0) + (w.base.balance||0);
-    const totalTx = (w.totalTxCount||0);
-    if (filterNonZero && totalBal === 0) return false;
-    if (filterHasTx && totalTx === 0) return false;
-    return true;
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  if (currentPage > totalPages) currentPage = totalPages;
-
-  const start = (currentPage - 1) * pageSize;
-  const page = filtered.slice(start, start + pageSize);
-
-  // build rows
-  tableBody.innerHTML = '';
-  if (!page.length) {
-    tableBody.innerHTML = `<tr><td colspan="16" class="small">No wallets to display</td></tr>`;
-    pageInfo.innerText = `Page ${currentPage} / ${totalPages}`;
-    return;
-  }
-
-  for (const w of page) {
-    // prepare token summary counts
-    const ethTokensCount = (w.eth.tokens ? w.eth.tokens.length : 0);
-    const bscTokensCount = (w.bsc.tokens ? w.bsc.tokens.length : 0);
-    const polyTokensCount = (w.poly.tokens ? w.poly.tokens.length : 0);
-    const baseTokensCount = (w.base.tokens ? w.base.tokens.length : 0);
-
-    // create token list HTML small (click to expand)
-    const createTokenHtml = (tokens) => {
-      if (!tokens || tokens.length === 0) return '-';
-      // show up to 3 tokens summary
-      const first = tokens.slice(0,3).map(t => `${t.symbol}: ${t.balance}`).join(' • ');
-      const more = tokens.length > 3 ? ` +${tokens.length-3} more` : '';
-      return `<div class="small">${first}${more}</div>`;
-    };
-
-    const totalUsd = (w.totalUSD != null) ? `$${w.totalUSD.toLocaleString()}` : 'N/A';
-    const avgGas = w.avgGas == null ? '-' : `${w.avgGas}`;
-
-    tableBody.innerHTML += `
-      <tr>
-        <td style="text-align:left; font-family:monospace">${w.addr}</td>
-
-        <td class="eth">${(w.eth.balance||0).toFixed(6)}</td>
-        <td class="eth">${w.eth.txCount||0}</td>
-        <td class="eth">${createTokenHtml(w.eth.tokens)}</td>
-
-        <td class="bsc">${(w.bsc.balance||0).toFixed(6)}</td>
-        <td class="bsc">${w.bsc.txCount||0}</td>
-        <td class="bsc">${createTokenHtml(w.bsc.tokens)}</td>
-
-        <td class="poly">${(w.poly.balance||0).toFixed(6)}</td>
-        <td class="poly">${w.poly.txCount||0}</td>
-        <td class="poly">${createTokenHtml(w.poly.tokens)}</td>
-
-        <td class="base">${(w.base.balance||0).toFixed(6)}</td>
-        <td class="base">${w.base.txCount||0}</td>
-        <td class="base">${createTokenHtml(w.base.tokens)}</td>
-
-        <td>${totalUsd}</td>
-        <td>${avgGas}</td>
-        <td><span class="indicator ${w.indicator}"></span><span class="small">${w.indicator}</span></td>
-      </tr>
-    `;
-  }
-
-  pageInfo.innerText = `Page ${currentPage} / ${totalPages}`;
-}
-
-// Main: load wallets from array addresses, batch process with delay
-async function loadAllWallets() {
+/* --------------------
+   Full load: process list of addresses, then fetch token prices in batch,
+   then compute USD totals (native + token where price available).
+   -------------------- */
+async function loadAddressesAndProcess(list){
   walletData = [];
-  tableBody.innerHTML = `<tr><td colspan="16" class="small">Loading wallets... (${addresses.length})</td></tr>`;
-  currentPage = 1;
-
-  for (let i = 0; i < addresses.length; i++) {
-    const addr = addresses[i];
+  tbody.innerHTML = `<tr><td colspan="16" class="small">Processing ${list.length} wallets...</td></tr>`;
+  // process sequentially with small delay to reduce burst
+  for (let i=0;i<list.length;i++){
+    const addr = list[i];
     try {
-      const w = await processWallet(addr);
-      walletData.push(w);
-    } catch (e) {
-      walletData.push({ addr, eth:{balance:0,txCount:0,tokens:[]}, bsc:{balance:0,txCount:0,tokens:[]}, poly:{balance:0,txCount:0,tokens:[]}, base:{balance:0,txCount:0,tokens:[]}, totalUSD:0, avgGas:null, indicator:'red', totalTxCount:0});
+      const item = await processWallet(addr);
+      walletData.push(item);
+    } catch(e){
+      walletData.push({ addr, eth:{balance:0,txCount:0,avgGas:null,tokens:[]}, bsc:{balance:0,txCount:0,avgGas:null,tokens:[]}, poly:{balance:0,txCount:0,avgGas:null,tokens:[]}, base:{balance:0,txCount:0,avgGas:null,tokens:[]}, totalUSD:0, indicator:'red', totalTx:0 });
     }
-    // re-render incrementally so user sees progress
-    renderTable();
-    await sleep(perWalletDelay); // throttle between wallet calls
+    renderTablePartial(); // show progress
+    await sleep(PER_WALLET_DELAY);
+  }
+
+  // gather token contracts per platform (lowercased unique)
+  const contractsByPlatform = { ethereum: new Set(), 'binance-smart-chain': new Set(), 'polygon-pos': new Set(), base: new Set() };
+  for (const w of walletData){
+    for (const [chainKey, platformName] of [['eth','ethereum'],['bsc','binance-smart-chain'],['poly','polygon-pos'],['base','base']]){
+      const arr = w[chainKey].tokens || [];
+      for (const t of arr) contractsByPlatform[platformName].add(t.contract.toLowerCase());
+    }
+  }
+  // fetch native prices
+  const nativePrices = await fetchNativePrices(); // {ETH,BNB,POLY,BASE}
+  // fetch token prices per platform (batch)
+  const tokenPriceMaps = {};
+  for (const plat in contractsByPlatform){
+    const arr = Array.from(contractsByPlatform[plat]);
+    if (!arr.length) { tokenPriceMaps[plat] = {}; continue; }
+    tokenPriceMaps[plat] = await fetchTokenPricesForPlatform(plat, arr);
+  }
+
+  // compute total USD per wallet
+  for (const w of walletData){
+    const ethUsd = nativePrices.ETH || 0;
+    const bnbUsd = nativePrices.BNB || 0;
+    const polyUsd = nativePrices.POLY || 0;
+    const baseUsd = nativePrices.BASE || 0;
+    const nativeTotal = (w.eth.balance||0)*ethUsd + (w.bsc.balance||0)*bnbUsd + (w.poly.balance||0)*polyUsd + (w.base.balance||0)*baseUsd;
+
+    // tokens USD
+    let tokensUsd = 0;
+    // ETH tokens
+    for (const t of (w.eth.tokens||[])) {
+      const price = tokenPriceMaps['ethereum'] && tokenPriceMaps['ethereum'][t.contract.toLowerCase()] ? tokenPriceMaps['ethereum'][t.contract.toLowerCase()] : 0;
+      tokensUsd += (price || 0) * (t.balance || 0);
+    }
+    // BSC
+    for (const t of (w.bsc.tokens||[])) {
+      const price = tokenPriceMaps['binance-smart-chain'] && tokenPriceMaps['binance-smart-chain'][t.contract.toLowerCase()] ? tokenPriceMaps['binance-smart-chain'][t.contract.toLowerCase()] : 0;
+      tokensUsd += (price || 0) * (t.balance || 0);
+    }
+    // Polygon
+    for (const t of (w.poly.tokens||[])) {
+      const price = tokenPriceMaps['polygon-pos'] && tokenPriceMaps['polygon-pos'][t.contract.toLowerCase()] ? tokenPriceMaps['polygon-pos'][t.contract.toLowerCase()] : 0;
+      tokensUsd += (price || 0) * (t.balance || 0);
+    }
+    // Base
+    for (const t of (w.base.tokens||[])) {
+      const price = tokenPriceMaps['base'] && tokenPriceMaps['base'][t.contract.toLowerCase()] ? tokenPriceMaps['base'][t.contract.toLowerCase()] : 0;
+      tokensUsd += (price || 0) * (t.balance || 0);
+    }
+
+    w.totalUSD = Math.round((nativeTotal + tokensUsd) * 100) / 100;
+    w.totalTx = (w.eth.txCount||0) + (w.bsc.txCount||0) + (w.poly.txCount||0) + (w.base.txCount||0);
+    // overall avg gas
+    const gasVals = [w.eth.avgGas, w.bsc.avgGas, w.poly.avgGas, w.base.avgGas].filter(v=>typeof v==='number');
+    w.avgGas = gasVals.length ? Math.round(gasVals.reduce((a,b)=>a+b,0)/gasVals.length) : null;
+    // indicator
+    w.indicator = (w.totalUSD >= 10 || w.totalTx >= 10) ? 'green' : ((w.totalUSD>0 || w.totalTx>0) ? 'orange' : 'red');
   }
 
   renderTable();
 }
 
-// File load handler
-loadFileBtn.addEventListener('click', ()=> {
-  const f = fileInput.files[0];
-  if (!f) return alert("Please select addresses.txt first (one address per line).");
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    addresses = ev.target.result.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-    currentPage = 1;
-    pageSize = Number(pageSizeSelect.value);
-    loadAllWallets();
-  };
-  reader.readAsText(f);
-});
-
-// pagination handlers
-prevBtn.addEventListener('click', ()=> { if (currentPage>1) { currentPage--; renderTable(); }});
-nextBtn.addEventListener('click', ()=> { currentPage++; renderTable(); });
-
-// filters, search, page size
-searchInput.addEventListener('input', ()=> { currentPage=1; renderTable(); });
-filterBal.addEventListener('change', ()=> { currentPage=1; renderTable(); });
-filterTx.addEventListener('change', ()=> { currentPage=1; renderTable(); });
-pageSizeSelect.addEventListener('change', ()=> { pageSize = Number(pageSizeSelect.value); currentPage=1; renderTable(); });
-
-// export CSV
-exportCsvBtn.addEventListener('click', ()=> {
-  if (!walletData.length) return alert("No data to export.");
-  const rows = [];
-  rows.push(['address','eth_balance','eth_tx','eth_tokens','bnb_balance','bnb_tx','bnb_tokens','poly_balance','poly_tx','poly_tokens','base_balance','base_tx','base_tokens','total_usd','avg_gas','indicator']);
-  for (const w of walletData) {
-    const row = [
-      w.addr,
-      (w.eth.balance||0),
-      (w.eth.txCount||0),
-      (w.eth.tokens||[]).map(t=>`${t.symbol}:${t.balance}`).join('|'),
-      (w.bsc.balance||0),
-      (w.bsc.txCount||0),
-      (w.bsc.tokens||[]).map(t=>`${t.symbol}:${t.balance}`).join('|'),
-      (w.poly.balance||0),
-      (w.poly.txCount||0),
-      (w.poly.tokens||[]).map(t=>`${t.symbol}:${t.balance}`).join('|'),
-      (w.base.balance||0),
-      (w.base.txCount||0),
-      (w.base.tokens||[]).map(t=>`${t.symbol}:${t.balance}`).join('|'),
-      (w.totalUSD||0),
-      (w.avgGas||''),
-      (w.indicator||'')
-    ];
-    rows.push(row);
-  }
-  const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob = new Blob([csv], {type:'text/csv'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'wallets_export.csv'; a.click();
-  URL.revokeObjectURL(url);
-});
-
-// Auto refresh
-function startAutoRefresh() {
-  if (autorefreshIntervalId) clearInterval(autorefreshIntervalId);
-  if (!autoRefreshToggle.checked) return;
-  autorefreshIntervalId = setInterval(async () => {
-    // reprocess addresses quickly — for performance we only refresh balances + small tx fetch
-    // Here we simply reload everything (could be optimized to refresh only balances)
-    await loadAllWallets();
-  }, autoRefreshMs);
+/* --------------------
+   Render helpers
+   -------------------- */
+function shortTokensHtml(tokens) {
+  if (!tokens || !tokens.length) return '-';
+  const first = tokens.slice(0,3).map(t=>`${t.symbol}:${t.balance}`).join(' • ');
+  return `<div class="token-list"><div class="token-item">${first}${tokens.length>3?` • +${tokens.length-3} more`:''}</div></div>`;
 }
-autoRefreshToggle.addEventListener('change', ()=> {
-  startAutoRefresh();
-});
-startAutoRefresh();
 
-</script>
-</body>
-</html>
+function renderTablePartial(){
+  // render minimal progress table with already processed wallets
+  const partial = walletData.slice(0, pageSize);
+  tbody.innerHTML = '';
+  for (const w of partial){
+    tbody.innerHTML += `
+      <tr>
+        <td style="text-align:left;font-family:monospace">${w.addr}</td>
+        <td class="eth">${(w.eth.balance||0).toFixed(6)}</td>
+        <td class="eth">${w.eth.txCount||0}</td>
+        <td class="eth">${shortTokensHtml(w.eth.tokens)}</td>
+
+        <td class="bsc">${(w.bsc.balance||0).toFixed(6)}</td>
+        <td class="bsc">${w.bsc.txCount||0}</td>
+        <td class="bsc">${shortTokensHtml(w.bsc.tokens)}</td>
+
+        <td class="poly">${(w.poly.balance||0).toFixed(6)}</td>
+        <td class="poly">${w.poly.txCount||0}</td>
+        <td class="poly">${shortTokensHtml(w.poly.tokens)}</td>
+
+        <td class="base">${(w.base.balance||0).toFixed(6)}</td>
+        <td class="base">${w.base.txCount||0}</td>
+        <td class="base">${shortTokensHtml(w.base.tokens)}</td>
+
+        <td>...</td><td>...</td><td><span class="indicator red"></span></td>
+      </tr>`;
+  }
+  pageInfo.innerText = `Processing ${walletData.length} / ${addresses.length}`;
+}
+
+function renderTable(){
+  const q = (searchEl.value||'').toLowerCase();
+  const fNonZero = filterNonZero.checked;
+  const fHasTx = filterHasTx.checked;
+  const filtered = walletData.filter(w=>{
+    if (q && !w.addr.toLowerCase().includes(q)) return false;
+    if (fNonZero && ((w.eth.balance||0)+(w.bsc.balance||0)+(w.poly.balance||0)+(w.base.balance||0)===0)) return false;
+    if (fHasTx && ((w.totalTx||0)===0)) return false;
+    return true;
+  });
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage-1)*pageSize;
+  const page = filtered.slice(start, start+pageSize);
+
+  tbody.innerHTML = '';
+  if (!page.length){
+    tbody.innerHTML = `<tr><td colspan="16" class="small">No wallets to display</td></tr>`;
+    pageInfo.innerText = `Page ${currentPage} / ${totalPages}`;
+    return;
+  }
+
+  for (const w of page){
+    tbody.innerHTML += `
+      <tr>
+        <td style="text-align:left;font-family:monospace">${w.addr}</td>
+
+        <td class="eth">${(w.eth.balance||0).toFixed(6)}</td>
+        <td class="eth">${w.eth.txCount||0}</td>
+        <td class="eth">${shortTokensHtml(w.eth.tokens)}</td>
+
+        <td class="bsc">${(w.bsc.balance||0).toFixed(6)}</td>
+        <td class="bsc">${w.bsc.txCount||0}</td>
+        <td class="bsc">${shortTokensHtml(w.bsc.tokens)}</td>
+
+        <td class="poly">${(w.poly.balance||0).toFixed(6)}</td>
+        <td class="poly">${w.poly.txCount||0}</td>
+        <td class="poly">${shortTokensHtml(w.poly.tokens)}</td>
+
+        <td class="base">${(w.base.balance||0).toFixed(6)}</td>
+        <td class="base">${w.base.txCount||0}</td>
+        <td class="base">${shortTokensHtml(w.base.tokens)}</td>
+
+        <td>${(w.totalUSD!=null)?('$'+w.totalUSD.toLocaleString()):'N/A'}</td>
+        <td>${w.avgGas==null?'-':w.avgGas}</td>
+        <td><span class="indicator ${w.indicator}"></span><span class="small">${w.indicator}</span></td>
+      </tr>`;
+  }
+
+  pageInfo.innerText = `Page ${currentPage} / ${totalPages}`;
+}
+
+/* --------------------
+   UI events & flow
+   -------------------- */
+loadFileBtn.addEventListener('click', ()=>{
+  const f = fileInput.files[0];
+  if (!f) return alert('Select addresses.txt (one per line).');
+  const r = new FileReader();
+  r.onload = async e => {
+    addresses = e.target.result.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+    currentPage = 1;
+    pageSize = Number(pageSizeEl.value);
+    await loadAddressesAndProcess(addresses);
+  };
+  r.readAsText(f);
+});
+
+prevBtn.addEventListener('click', ()=>{ if (currentPage>1){ currentPage--; renderTable(); }});
+nextBtn.addEventListener('click', ()=>{ currentPage++; renderTable(); });
+
+searchEl.addEventListener('input', ()=>{ currentPage=1; renderTable(); });
+pageSizeEl.addEventListener('change', ()=>{ pageSize = Number(pageSizeEl.value); currentPage=1; renderTable(); });
+filterNonZero.addEventListener('change', ()=>{ currentPage=1; renderTable(); });
+filterHasTx.addEventListener('change', ()=>{ currentPage=1; renderTable(); });
+
+exportCsvBtn.addEventListener('click', ()=>{
+  if (!walletData.length) return alert('No data to export');
+  const rows = [['address','eth_balance','eth_tx','eth_tokens','bnb_balance','bnb_tx','bnb_tokens','poly_bal
