@@ -107,16 +107,20 @@ tbody tr:hover { background:#3a3a55; transition:0.2s; }
       <th>Address</th>
       <th class="eth">ETH Balance</th>
       <th class="eth">ETH Tx</th>
+      <th class="eth">ERC20 Tx</th>
       <th class="bsc">BNB Balance</th>
       <th class="bsc">BNB Tx</th>
+      <th class="bsc">ERC20 Tx</th>
       <th class="poly">Polygon Balance</th>
       <th class="poly">Polygon Tx</th>
+      <th class="poly">ERC20 Tx</th>
       <th class="base">Base Balance</th>
       <th class="base">Base Tx</th>
+      <th class="base">ERC20 Tx</th>
     </tr>
   </thead>
   <tbody id="table-body">
-    <tr><td colspan="9" style="text-align:center;">No wallets loaded</td></tr>
+    <tr><td colspan="13" style="text-align:center;">No wallets loaded</td></tr>
   </tbody>
 </table>
 
@@ -127,9 +131,8 @@ tbody tr:hover { background:#3a3a55; transition:0.2s; }
 </div>
 
 <script>
-// --- RPC Config ---
 const CHAINS = {
-  Ethereum: {rpc:"https://eth.llamarpc.com"},
+  Ethereum: {rpc:"https://eth.blockrazor.xyz"},
   BSC: {rpc:"https://bsc-dataseed.binance.org/"},
   Polygon: {rpc:"https://polygon-rpc.com"},
   Base: {rpc:"https://mainnet.base.org"}
@@ -157,12 +160,34 @@ async function getBalance(chain,address){
   return result? parseInt(result,16)/1e18 : null;
 }
 
-async function getTxCount(chain,address){
-  const result = await rpcCall(chain,"eth_getTransactionCount",[address,"latest"]);
-  return result? parseInt(result,16) : null;
+// Separate normal vs ERC20 tx
+async function getTxCounts(chain, address){
+  try{
+    const normalTxHex = await rpcCall(chain, "eth_getTransactionCount", [address, "latest"]);
+    const normalTx = normalTxHex ? parseInt(normalTxHex,16) : 0;
+
+    const latestBlockHex = await rpcCall(chain,"eth_blockNumber",[]);
+    const latestBlock = latestBlockHex ? parseInt(latestBlockHex,16) : 0;
+    const fromBlock = Math.max(latestBlock - 100000, 0);
+
+    const logs = await rpcCall(chain,"eth_getLogs",[{
+      fromBlock: "0x"+fromBlock.toString(16),
+      toBlock:"latest",
+      topics:["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"]
+    }]);
+
+    let tokenTx = 0;
+    if(logs && Array.isArray(logs)){
+      tokenTx = logs.filter(l =>
+        l.topics[1].toLowerCase().includes(address.toLowerCase().replace("0x","")) ||
+        l.topics[2].toLowerCase().includes(address.toLowerCase().replace("0x",""))
+      ).length;
+    }
+
+    return {normalTx, tokenTx};
+  }catch(e){ return {normalTx:null, tokenTx:null}; }
 }
 
-// Load wallets from file
 document.getElementById('loadFile').addEventListener('click', ()=>{
   const file = document.getElementById('fileInput').files[0];
   if(!file){ alert("Please select a file"); return; }
@@ -177,16 +202,23 @@ document.getElementById('loadFile').addEventListener('click', ()=>{
 async function loadWalletData(){
   walletData = [];
   const tbody = document.getElementById("table-body");
-  tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">Loading wallets…</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;">Loading wallets…</td></tr>`;
 
   for(const addr of addresses){
-    const [ethBal, ethTx, bnbBal, bnbTx, polyBal, polyTx, baseBal, baseTx] = await Promise.all([
-      getBalance("Ethereum", addr), getTxCount("Ethereum", addr),
-      getBalance("BSC", addr), getTxCount("BSC", addr),
-      getBalance("Polygon", addr), getTxCount("Polygon", addr),
-      getBalance("Base", addr), getTxCount("Base", addr)
+    const [ethBal, ethTxs, bnbBal, bnbTxs, polyBal, polyTxs, baseBal, baseTxs] = await Promise.all([
+      getBalance("Ethereum", addr), getTxCounts("Ethereum", addr),
+      getBalance("BSC", addr), getTxCounts("BSC", addr),
+      getBalance("Polygon", addr), getTxCounts("Polygon", addr),
+      getBalance("Base", addr), getTxCounts("Base", addr)
     ]);
-    walletData.push({addr, ethBal, ethTx, bnbBal, bnbTx, polyBal, polyTx, baseBal, baseTx});
+
+    walletData.push({
+      addr,
+      ethBal, ethNormalTx: ethTxs.normalTx, ethTokenTx: ethTxs.tokenTx,
+      bnbBal, bnbNormalTx: bnbTxs.normalTx, bnbTokenTx: bnbTxs.tokenTx,
+      polyBal, polyNormalTx: polyTxs.normalTx, polyTokenTx: polyTxs.tokenTx,
+      baseBal, baseNormalTx: baseTxs.normalTx, baseTokenTx: baseTxs.tokenTx
+    });
   }
   currentPage=1;
   renderTable();
@@ -202,7 +234,7 @@ function renderTable(){
   const filtered = walletData.filter(w=>{
     if(search && !w.addr.toLowerCase().includes(search)) return false;
     if(filterNonZero && (w.ethBal + w.bnbBal + w.polyBal + w.baseBal === 0)) return false;
-    if(filterTx && (w.ethTx + w.bnbTx + w.polyTx + w.baseTx === 0)) return false;
+    if(filterTx && (w.ethNormalTx + w.bnbNormalTx + w.polyNormalTx + w.baseNormalTx === 0)) return false;
     return true;
   });
 
@@ -210,7 +242,7 @@ function renderTable(){
   const pageWallets = filtered.slice(start,start+pageSize);
 
   if(pageWallets.length===0){
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">No wallets to display</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;">No wallets to display</td></tr>`;
   }
 
   for(const w of pageWallets){
@@ -218,13 +250,17 @@ function renderTable(){
     row.innerHTML = `
       <td>${w.addr}</td>
       <td class="eth">${w.ethBal===null?'Error':w.ethBal.toFixed(4)} <span class="balance-bar" style="width:${Math.min(w.ethBal,1)*100}%; background:#8e44ad"></span></td>
-      <td class="eth">${w.ethTx===null?'Error':w.ethTx}</td>
+      <td class="eth">${w.ethNormalTx===null?'Error':w.ethNormalTx}</td>
+      <td class="eth">${w.ethTokenTx===null?'Error':w.ethTokenTx}</td>
       <td class="bsc">${w.bnbBal===null?'Error':w.bnbBal.toFixed(4)} <span class="balance-bar" style="width:${Math.min(w.bnbBal,1)*100}%; background:#e67e22"></span></td>
-      <td class="bsc">${w.bnbTx===null?'Error':w.bnbTx}</td>
+      <td class="bsc">${w.bnbNormalTx===null?'Error':w.bnbNormalTx}</td>
+      <td class="bsc">${w.bnbTokenTx===null?'Error':w.bnbTokenTx}</td>
       <td class="poly">${w.polyBal===null?'Error':w.polyBal.toFixed(4)} <span class="balance-bar" style="width:${Math.min(w.polyBal,1)*100}%; background:#27ae60"></span></td>
-      <td class="poly">${w.polyTx===null?'Error':w.polyTx}</td>
+      <td class="poly">${w.polyNormalTx===null?'Error':w.polyNormalTx}</td>
+      <td class="poly">${w.polyTokenTx===null?'Error':w.polyTokenTx}</td>
       <td class="base">${w.baseBal===null?'Error':w.baseBal.toFixed(4)} <span class="balance-bar" style="width:${Math.min(w.baseBal,1)*100}%; background:#c0392b"></span></td>
-      <td class="base">${w.baseTx===null?'Error':w.baseTx}</td>
+      <td class="base">${w.baseNormalTx===null?'Error':w.baseNormalTx}</td>
+      <td class="base">${w.baseTokenTx===null?'Error':w.baseTokenTx}</td>
     `;
     tbody.appendChild(row);
   }
