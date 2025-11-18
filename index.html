@@ -2,201 +2,169 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>💎 Wallet Dashboard | Multi-Chain Tracker</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wallet Dashboard | Multi-Chain Tracker</title>
 <style>
-  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#f5f7fa; margin:0; padding:0; }
-  header { background:#2b2b2b; color:white; text-align:center; padding:15px 0; box-shadow:0 2px 5px rgba(0,0,0,0.2);}
-  h1 { margin:0; font-size:1.6em; }
-  main { padding:15px; max-width:1000px; margin:auto; }
-  .filters { margin-bottom:10px; display:flex; flex-wrap:wrap; align-items:center; }
-  .filters label { margin-right:15px; font-weight:500; font-size:0.9em; }
-  button { margin-left:10px; padding:5px 10px; font-weight:500; background:#4a90e2; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.9em;}
-  button:hover { background:#357ABD; }
-  #lastUpdated { margin-left:auto; font-size:0.8em; color:#555; }
-
-  table { width:100%; border-collapse: collapse; background:white; box-shadow:0 2px 5px rgba(0,0,0,0.1); display:block; overflow-x:auto; }
-  th, td { border:1px solid #ddd; padding:8px; text-align:center; font-size:0.85em; min-width:70px; }
-  th { background:#4a90e2; color:white; position:sticky; top:0; z-index:1; cursor:pointer; user-select:none; }
-  tbody tr:hover { background:#f0f4ff; }
-  td.error { color:red; font-weight:bold; }
-  td.zero { color:#999; }
-  .loading { text-align:center; font-style:italic; color:#555; }
-  #totalsRow { font-weight:bold; background:#eef4ff; }
-
-  @media(max-width:600px){
-    .filters { flex-direction:column; align-items:flex-start; }
-    button { margin:5px 0; }
-    th, td { padding:6px; font-size:0.75em; }
-  }
+body { font-family: Arial, sans-serif; background:#f5f7fa; margin:0; padding:20px; }
+h1 { text-align:center; color:#2b2b2b; margin-bottom:20px; }
+.controls { margin-bottom:15px; display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; }
+.controls input[type=text], .controls input[type=file] { padding:5px; flex:1; min-width:150px; }
+.controls label { display:flex; align-items:center; gap:5px; font-size:0.9em; }
+button { padding:5px 10px; cursor:pointer; }
+table { width:100%; border-collapse:collapse; background:white; overflow-x:auto; display:block; }
+th, td { border:1px solid #ccc; padding:8px; text-align:center; font-size:0.9em; white-space:nowrap; }
+th { background:#007bff; color:white; cursor:pointer; position:sticky; top:0; }
+tbody tr:hover { background:#f0f4ff; }
+.pagination { margin-top:10px; text-align:center; }
+.pagination button { margin:0 5px; padding:5px 10px; cursor:pointer; }
+@media(max-width:768px){ table { font-size:0.8em; } .controls{ flex-direction:column; } }
 </style>
 </head>
 <body>
 
-<header>
-  <h1>💎 Wallet Dashboard | Multi-Chain Tracker</h1>
-</header>
+<h1>💎 Wallet Dashboard | Multi-Chain Tracker</h1>
 
-<main>
-  <div class="filters">
-    <label><input type="checkbox" id="filterBalance"> Show wallets with non-zero balance</label>
-    <label><input type="checkbox" id="filterTx"> Show wallets with transactions</label>
-    <button id="exportCSV">Export CSV</button>
-    <span id="lastUpdated">Last updated: --:--:--</span>
-  </div>
+<div class="controls">
+  <input type="file" id="fileInput" accept=".txt">
+  <button id="loadFile">Load Wallets</button>
+  <input type="text" id="search" placeholder="Search address…">
+  <label><input type="checkbox" id="filterNonZero"> Only non-zero balance</label>
+  <label><input type="checkbox" id="filterTx"> Only wallets with transactions</label>
+</div>
 
-  <table>
-    <thead>
-      <tr>
-        <th data-col="0">Address</th>
-        <th data-col="1">ETH Balance</th>
-        <th data-col="2">ETH Tx</th>
-        <th data-col="3">BNB Balance</th>
-        <th data-col="4">BNB Tx</th>
-        <th data-col="5">Polygon Balance</th>
-        <th data-col="6">Polygon Tx</th>
-        <th data-col="7">Base Balance</th>
-        <th data-col="8">Base Tx</th>
-      </tr>
-    </thead>
-    <tbody id="walletTable">
-      <tr><td colspan="9" class="loading">Loading addresses and balances...</td></tr>
-    </tbody>
-  </table>
-</main>
+<table>
+  <thead>
+    <tr>
+      <th data-col="0">Address</th>
+      <th data-col="1">ETH Balance</th>
+      <th data-col="2">ETH Tx</th>
+      <th data-col="3">BNB Balance</th>
+      <th data-col="4">BNB Tx</th>
+      <th data-col="5">Polygon Balance</th>
+      <th data-col="6">Polygon Tx</th>
+      <th data-col="7">Base Balance</th>
+      <th data-col="8">Base Tx</th>
+    </tr>
+  </thead>
+  <tbody id="table-body">
+    <tr><td colspan="9" style="text-align:center;">No wallets loaded</td></tr>
+  </tbody>
+</table>
+
+<div class="pagination">
+  <button id="prev">Prev</button>
+  <span id="page-info">Page 0 / 0</span>
+  <button id="next">Next</button>
+</div>
 
 <script>
-// ---- CHAINS CONFIG ----
 const CHAINS = {
-  Ethereum: {balance:"https://api.etherscan.io/api?module=account&action=balance&address={address}&tag=latest", txcount:"https://api.etherscan.io/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"},
-  BSC: {balance:"https://api.bscscan.com/api?module=account&action=balance&address={address}", txcount:"https://api.bscscan.com/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"},
-  Polygon: {balance:"https://api.polygonscan.com/api?module=account&action=balance&address={address}", txcount:"https://api.polygonscan.com/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"},
-  Base: {balance:"https://base.blockscout.com/api?module=account&action=balance&address={address}", txcount:"https://base.blockscout.com/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"}
+  Ethereum: {balance:"https://api.etherscan.io/api?module=account&action=balance&address={address}&tag=latest", tx:"https://api.etherscan.io/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"},
+  BSC: {balance:"https://api.bscscan.com/api?module=account&action=balance&address={address}", tx:"https://api.bscscan.com/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"},
+  Polygon: {balance:"https://api.polygonscan.com/api?module=account&action=balance&address={address}", tx:"https://api.polygonscan.com/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"},
+  Base: {balance:"https://base.blockscout.com/api?module=account&action=balance&address={address}", tx:"https://base.blockscout.com/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"}
 };
 
-// ---- HELPER FUNCTIONS ----
-async function fetchJSON(url){ try{ const res=await fetch(url); return await res.json(); }catch(e){ return null; } }
-async function getBalance(chain,address){ const url=CHAINS[chain].balance.replace("{address}", address); const data=await fetchJSON(url); if(data && data.result){ return data.result.startsWith("0x") ? parseInt(data.result,16)/1e18 : parseFloat(data.result)/1e18; } return null; }
-async function getTxCount(chain,address){ const url=CHAINS[chain].txcount.replace("{address}", address); const data=await fetchJSON(url); if(data && data.result) return data.result.length; return null; }
+let addresses = [];
+let walletData = [];
+const pageSize = 25;
+let currentPage = 1;
 
-// ---- LOAD ADDRESSES ----
-async function loadAddresses(){
-  try{
-    const resp = await fetch("https://raw.githubusercontent.com/WantedEth/Wallet-Dashboard/main/addresses.txt?t="+Date.now());
-    const text = await resp.text();
-    return text.split("\n").map(a=>a.trim()).filter(a=>a!=="");
-  }catch(e){
-    alert("Failed to load addresses.txt");
-    return [];
-  }
+// Fetch helpers
+async function fetchJSON(url){ try{ const res=await fetch(url); return await res.json(); }catch(e){ return null; } }
+async function getBalance(chain,address){
+  const url = CHAINS[chain].balance.replace("{address}", address);
+  const data = await fetchJSON(url);
+  if(data && data.result) return typeof data.result==="string"? (data.result.startsWith("0x")? parseInt(data.result,16)/1e18 : parseFloat(data.result)/1e18) : parseFloat(data.result)/1e18;
+  return null;
+}
+async function getTxCount(chain,address){
+  const url = CHAINS[chain].tx.replace("{address}", address);
+  const data = await fetchJSON(url);
+  if(data && data.result) return Array.isArray(data.result)? data.result.length : 0;
+  return null;
 }
 
-// ---- LOAD WALLETS ONE BY ONE ----
-async function loadWallets(){
-  const tbody = document.getElementById("walletTable");
-  tbody.innerHTML = '';
-  const addresses = await loadAddresses();
-  let totals={ETH:0, BNB:0, POLY:0, BASE:0};
+// Load wallets from uploaded file
+document.getElementById('loadFile').addEventListener('click', ()=>{
+  const file = document.getElementById('fileInput').files[0];
+  if(!file){ alert("Please select a file"); return; }
+  const reader = new FileReader();
+  reader.onload = async e=>{
+    addresses = e.target.result.split('\n').map(a=>a.trim()).filter(a=>a!=='');
+    await loadWalletData();
+  };
+  reader.readAsText(file);
+});
+
+// Load balances and transactions
+async function loadWalletData(){
+  walletData = [];
+  const tbody = document.getElementById("table-body");
+  tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">Loading wallets…</td></tr>`;
 
   for(const addr of addresses){
-    const row = document.createElement("tr");
-    row.innerHTML = `<td>${addr}</td><td colspan='8' class='loading'>Fetching...</td>`;
-    tbody.appendChild(row);
+    const [ethBal, ethTx, bnbBal, bnbTx, polyBal, polyTx, baseBal, baseTx] = await Promise.all([
+      getBalance("Ethereum", addr), getTxCount("Ethereum", addr),
+      getBalance("BSC", addr), getTxCount("BSC", addr),
+      getBalance("Polygon", addr), getTxCount("Polygon", addr),
+      getBalance("Base", addr), getTxCount("Base", addr)
+    ]);
+    walletData.push({addr, ethBal, ethTx, bnbBal, bnbTx, polyBal, polyTx, baseBal, baseTx});
+  }
+  currentPage = 1;
+  renderTable();
+}
 
-    const ethBal = await getBalance("Ethereum",addr); const ethTx = await getTxCount("Ethereum",addr);
-    const bnbBal = await getBalance("BSC",addr); const bnbTx = await getTxCount("BSC",addr);
-    const polyBal = await getBalance("Polygon",addr); const polyTx = await getTxCount("Polygon",addr);
-    const baseBal = await getBalance("Base",addr); const baseTx = await getTxCount("Base",addr);
+// Render table with pagination and filters
+function renderTable(){
+  const tbody = document.getElementById("table-body");
+  tbody.innerHTML = "";
+  const search = document.getElementById("search").value.toLowerCase();
+  const filterNonZero = document.getElementById("filterNonZero").checked;
+  const filterTx = document.getElementById("filterTx").checked;
 
-    totals.ETH += ethBal||0; totals.BNB += bnbBal||0; totals.POLY += polyBal||0; totals.BASE += baseBal||0;
+  const filtered = walletData.filter(w=>{
+    if(search && !w.addr.toLowerCase().includes(search)) return false;
+    if(filterNonZero && (w.ethBal + w.bnbBal + w.polyBal + w.baseBal === 0)) return false;
+    if(filterTx && (w.ethTx + w.bnbTx + w.polyTx + w.baseTx === 0)) return false;
+    return true;
+  });
 
-    row.innerHTML = `
-      <td>${addr}</td>
-      <td class="${ethBal===null?'error':ethBal===0?'zero':''}">${ethBal===null?'Error':ethBal.toFixed(4)}</td>
-      <td class="${ethTx===null?'error':ethTx===0?'zero':''}">${ethTx===null?'Error':ethTx}</td>
-      <td class="${bnbBal===null?'error':bnbBal===0?'zero':''}">${bnbBal===null?'Error':bnbBal.toFixed(4)}</td>
-      <td class="${bnbTx===null?'error':bnbTx===0?'zero':''}">${bnbTx===null?'Error':bnbTx}</td>
-      <td class="${polyBal===null?'error':polyBal===0?'zero':''}">${polyBal===null?'Error':polyBal.toFixed(4)}</td>
-      <td class="${polyTx===null?'error':polyTx===0?'zero':''}">${polyTx===null?'Error':polyTx}</td>
-      <td class="${baseBal===null?'error':baseBal===0?'zero':''}">${baseBal===null?'Error':baseBal.toFixed(4)}</td>
-      <td class="${baseTx===null?'error':baseTx===0?'zero':''}">${baseTx===null?'Error':baseTx}</td>
-    `;
-    await new Promise(r=>setTimeout(r,150));
+  const start = (currentPage-1)*pageSize;
+  const pageWallets = filtered.slice(start, start+pageSize);
+
+  if(pageWallets.length===0){
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">No wallets to display</td></tr>`;
   }
 
-  const totalRow = document.createElement("tr");
-  totalRow.id="totalsRow";
-  totalRow.innerHTML = `<td>Total</td>
-    <td>${totals.ETH.toFixed(4)}</td><td>-</td>
-    <td>${totals.BNB.toFixed(4)}</td><td>-</td>
-    <td>${totals.POLY.toFixed(4)}</td><td>-</td>
-    <td>${totals.BASE.toFixed(4)}</td><td>-</td>`;
-  tbody.prepend(totalRow);
+  for(const w of pageWallets){
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${w.addr}</td>
+      <td>${w.ethBal===null?'Error':w.ethBal.toFixed(4)}</td>
+      <td>${w.ethTx===null?'Error':w.ethTx}</td>
+      <td>${w.bnbBal===null?'Error':w.bnbBal.toFixed(4)}</td>
+      <td>${w.bnbTx===null?'Error':w.bnbTx}</td>
+      <td>${w.polyBal===null?'Error':w.polyBal.toFixed(4)}</td>
+      <td>${w.polyTx===null?'Error':w.polyTx}</td>
+      <td>${w.baseBal===null?'Error':w.baseBal.toFixed(4)}</td>
+      <td>${w.baseTx===null?'Error':w.baseTx}</td>
+    `;
+    tbody.appendChild(row);
+  }
 
-  document.getElementById("lastUpdated").textContent = "Last updated: "+new Date().toLocaleTimeString();
-  filterTable();
+  document.getElementById("page-info").textContent = `Page ${currentPage} / ${Math.ceil(filtered.length/pageSize)}`;
 }
 
-// ---- FILTERS ----
-document.getElementById("filterBalance").addEventListener("change", filterTable);
-document.getElementById("filterTx").addEventListener("change", filterTable);
-function filterTable(){
-  const filterBalance=document.getElementById("filterBalance").checked;
-  const filterTx=document.getElementById("filterTx").checked;
-  const rows=document.querySelectorAll("#walletTable tr");
-  rows.forEach((row)=>{
-    if(row.id==="totalsRow") return;
-    const cols=row.querySelectorAll("td");
-    if(cols.length===9){
-      const balances=[1,3,5,7].map(i=>parseFloat(cols[i].textContent)||0);
-      const txs=[2,4,6,8].map(i=>parseInt(cols[i].textContent)||0);
-      let show=true;
-      if(filterBalance && balances.reduce((a,b)=>a+b,0)===0) show=false;
-      if(filterTx && txs.reduce((a,b)=>a+b,0)===0) show=false;
-      row.style.display=show?"":"none";
-    }
-  });
-}
+// Pagination buttons
+document.getElementById("prev").onclick = ()=>{ if(currentPage>1){ currentPage--; renderTable(); } };
+document.getElementById("next").onclick = ()=>{ currentPage++; renderTable(); };
 
-// ---- SORTABLE COLUMNS ----
-let sortDirection=[];
-document.querySelectorAll("th[data-col]").forEach(th=>{
-  sortDirection[th.dataset.col]=true;
-  th.addEventListener("click", ()=>{
-    const col=parseInt(th.dataset.col);
-    const tbody=document.getElementById("walletTable");
-    const rows=Array.from(tbody.querySelectorAll("tr")).filter(r=>r.id!=="totalsRow");
-    rows.sort((a,b)=>{
-      const aVal=parseFloat(a.children[col].textContent)||0;
-      const bVal=parseFloat(b.children[col].textContent)||0;
-      return sortDirection[col]?(aVal-bVal):(bVal-aVal);
-    });
-    rows.forEach(r=>tbody.appendChild(r));
-    sortDirection[col]=!sortDirection[col];
-  });
-});
-
-// ---- EXPORT CSV ----
-document.getElementById("exportCSV").addEventListener("click", ()=>{
-  const rows=document.querySelectorAll("#walletTable tr");
-  let csv="";
-  rows.forEach(r=>{
-    const cols=r.querySelectorAll("td");
-    const rowData=[];
-    cols.forEach(c=>rowData.push('"'+c.textContent+'"'));
-    csv+=rowData.join(",")+"\n";
-  });
-  const blob=new Blob([csv],{type:"text/csv"});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");
-  a.href=url; a.download="wallets.csv"; a.click();
-  URL.revokeObjectURL(url);
-});
-
-// ---- AUTO REFRESH ----
-loadWallets();
-setInterval(loadWallets,180000);
+// Filters and search
+document.getElementById("search").addEventListener("input",()=>{ currentPage=1; renderTable(); });
+document.getElementById("filterNonZero").addEventListener("change",()=>{ currentPage=1; renderTable(); });
+document.getElementById("filterTx").addEventListener("change",()=>{ currentPage=1; renderTable(); });
 </script>
-
 </body>
 </html>
