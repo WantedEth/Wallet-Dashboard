@@ -2,133 +2,120 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Multi-Chain Wallet Dashboard</title>
+<title>Wallet Dashboard | Multi-Chain Tracker</title>
 <style>
-  body { font-family: Arial, sans-serif; padding: 20px; background:#f9f9f9; }
-  h1 { text-align:center; margin-bottom: 10px; }
-  table { width:100%; border-collapse: collapse; margin-top:20px; }
-  th, td { border:1px solid #ddd; padding:8px; text-align:center; }
-  th { background:#f4f4f4; }
-  input { margin-right:10px; }
+  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#f5f7fa; margin:0; padding:0; }
+  header { background:#2b2b2b; color:white; text-align:center; padding:20px 0; box-shadow:0 2px 5px rgba(0,0,0,0.2);}
+  h1 { margin:0; font-size:2em; }
+  main { padding:20px; max-width:1400px; margin:auto; }
+  .filters { margin-bottom:15px; }
+  .filters label { margin-right:20px; font-weight:500; }
+  button { margin-left:20px; padding:5px 12px; font-weight:500; background:#4a90e2; color:white; border:none; border-radius:4px; cursor:pointer;}
+  button:hover { background:#357ABD; }
+  table { width:100%; border-collapse: collapse; background:white; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
+  th, td { border:1px solid #ddd; padding:10px; text-align:center; font-size:0.95em; }
+  th { background:#4a90e2; color:white; position:sticky; top:0; z-index:1; cursor:pointer; user-select:none; }
+  tbody tr:hover { background:#f0f4ff; }
+  td.error { color:red; font-weight:bold; }
+  td.zero { color:#999; }
+  .loading { text-align:center; font-style:italic; color:#555; }
+  #totalsRow { font-weight:bold; background:#eef4ff; }
 </style>
 </head>
 <body>
 
-<h1>Multi-Chain Wallet Dashboard</h1>
+<header>
+  <h1>💎 Wallet Dashboard | Multi-Chain Tracker</h1>
+</header>
 
-<label><input type="checkbox" id="filterBalance"> Show wallets with non-zero balance</label>
-<label><input type="checkbox" id="filterTx"> Show wallets with transactions</label>
+<main>
+  <div class="filters">
+    <label><input type="checkbox" id="filterBalance"> Show wallets with non-zero balance</label>
+    <label><input type="checkbox" id="filterTx"> Show wallets with transactions</label>
+    <button id="exportCSV">Export CSV</button>
+    <span style="float:right; font-size:0.9em; color:#555;">Auto-refresh every 3 mins 🔄</span>
+  </div>
 
-<table>
-  <thead>
-    <tr>
-      <th>Address</th>
-      <th>ETH Balance</th>
-      <th>ETH Tx Count</th>
-      <th>BNB Balance</th>
-      <th>BNB Tx Count</th>
-      <th>Polygon Balance</th>
-      <th>Polygon Tx Count</th>
-      <th>Base Balance</th>
-      <th>Base Tx Count</th>
-    </tr>
-  </thead>
-  <tbody id="walletTable">
-    <tr><td colspan="9">Loading...</td></tr>
-  </tbody>
-</table>
+  <table>
+    <thead>
+      <tr>
+        <th data-col="0">Address</th>
+        <th data-col="1">ETH Balance</th>
+        <th data-col="2">ETH Tx</th>
+        <th data-col="3">BNB Balance</th>
+        <th data-col="4">BNB Tx</th>
+        <th data-col="5">Polygon Balance</th>
+        <th data-col="6">Polygon Tx</th>
+        <th data-col="7">Base Balance</th>
+        <th data-col="8">Base Tx</th>
+      </tr>
+    </thead>
+    <tbody id="walletTable">
+      <tr><td colspan="9" class="loading">Loading addresses and balances...</td></tr>
+    </tbody>
+  </table>
+</main>
 
 <script>
 // ---- CHAINS CONFIG ----
 const CHAINS = {
-  Ethereum: {
-    balance: "https://api.etherscan.io/api?module=account&action=balance&address={address}&tag=latest",
-    txcount: "https://api.etherscan.io/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"
-  },
-  BSC: {
-    balance: "https://api.bscscan.com/api?module=account&action=balance&address={address}",
-    txcount: "https://api.bscscan.com/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"
-  },
-  Polygon: {
-    balance: "https://api.polygonscan.com/api?module=account&action=balance&address={address}",
-    txcount: "https://api.polygonscan.com/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"
-  },
-  Base: {
-    balance: "https://base.blockscout.com/api?module=account&action=balance&address={address}",
-    txcount: "https://base.blockscout.com/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"
-  }
+  Ethereum: {balance:"https://api.etherscan.io/api?module=account&action=balance&address={address}&tag=latest", txcount:"https://api.etherscan.io/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"},
+  BSC: {balance:"https://api.bscscan.com/api?module=account&action=balance&address={address}", txcount:"https://api.bscscan.com/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"},
+  Polygon: {balance:"https://api.polygonscan.com/api?module=account&action=balance&address={address}", txcount:"https://api.polygonscan.com/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"},
+  Base: {balance:"https://base.blockscout.com/api?module=account&action=balance&address={address}", txcount:"https://base.blockscout.com/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"}
 };
 
-// ---- FETCH BALANCE ----
-async function getBalance(chain, address){
-  try{
-    const url = CHAINS[chain].balance.replace("{address}", address);
-    const res = await fetch(url);
-    const data = await res.json();
-    if(data.result){
-      if(typeof data.result==="string") return data.result.startsWith("0x") ? parseInt(data.result,16)/1e18 : parseFloat(data.result)/1e18;
-      return parseFloat(data.result)/1e18;
-    }
-  }catch(e){ }
-  return 0;
-}
+// ---- HELPER FUNCTIONS ----
+async function fetchJSON(url){ try{ const res=await fetch(url); return await res.json(); }catch(e){ return null; } }
+async function getBalance(chain,address){ const url=CHAINS[chain].balance.replace("{address}", address); const data=await fetchJSON(url); if(data && data.result){ if(typeof data.result==="string") return data.result.startsWith("0x")?parseInt(data.result,16)/1e18:parseFloat(data.result)/1e18; return parseFloat(data.result)/1e18;} return null; }
+async function getTxCount(chain,address){ const url=CHAINS[chain].txcount.replace("{address}", address); const data=await fetchJSON(url); if(data && data.result) return data.result.length; return null; }
+async function loadAddresses(){ try{ const resp=await fetch("https://raw.githubusercontent.com/WantedEth/Wallet-Dashboard/main/addresses.txt?t="+Date.now()); const text=await resp.text(); return text.split("\n").map(a=>a.trim()).filter(a=>a!==""); }catch(e){ alert("Failed to load addresses.txt"); return []; }
 
-// ---- FETCH TX COUNT ----
-async function getTxCount(chain,address){
-  try{
-    const url = CHAINS[chain].txcount.replace("{address}", address);
-    const res = await fetch(url);
-    const data = await res.json();
-    return data.result ? data.result.length : 0;
-  }catch(e){ }
-  return 0;
-}
-
-// ---- LOAD ADDRESSES FROM addresses.txt ----
-async function loadAddresses(){
-  try{
-    const resp = await fetch("https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/addresses.txt");
-    const text = await resp.text();
-    return text.split("\n").map(a=>a.trim()).filter(a=>a!=="");
-  }catch(e){ alert("Failed to load addresses.txt"); return []; }
-}
-
-// ---- LOAD WALLETS DATA ----
+// ---- LOAD WALLET DATA ----
 async function loadWallets(){
-  const tbody = document.getElementById("walletTable");
-  tbody.innerHTML = "<tr><td colspan='9'>Loading...</td></tr>";
+  const tbody=document.getElementById("walletTable");
+  tbody.innerHTML='<tr><td colspan="9" class="loading">Loading addresses and balances...</td></tr>';
+  const addresses=await loadAddresses();
+  tbody.innerHTML='';
 
-  const addresses = await loadAddresses();
+  let totals={ETH:0, BNB:0, POLY:0, BASE:0};
 
   for(const addr of addresses){
-    const ethBal = await getBalance("Ethereum", addr);
-    const ethTx = await getTxCount("Ethereum", addr);
-    const bnbBal = await getBalance("BSC", addr);
-    const bnbTx = await getTxCount("BSC", addr);
-    const polyBal = await getBalance("Polygon", addr);
-    const polyTx = await getTxCount("Polygon", addr);
-    const baseBal = await getBalance("Base", addr);
-    const baseTx = await getTxCount("Base", addr);
+    const [ethBal, ethTx, bnbBal, bnbTx, polyBal, polyTx, baseBal, baseTx]=await Promise.all([
+      getBalance("Ethereum",addr), getTxCount("Ethereum",addr),
+      getBalance("BSC",addr), getTxCount("BSC",addr),
+      getBalance("Polygon",addr), getTxCount("Polygon",addr),
+      getBalance("Base",addr), getTxCount("Base",addr)
+    ]);
 
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${addr}</td>
-      <td>${ethBal.toFixed(4)}</td>
-      <td>${ethTx}</td>
-      <td>${bnbBal.toFixed(4)}</td>
-      <td>${bnbTx}</td>
-      <td>${polyBal.toFixed(4)}</td>
-      <td>${polyTx}</td>
-      <td>${baseBal.toFixed(4)}</td>
-      <td>${baseTx}</td>
-    `;
+    // Update totals
+    totals.ETH += ethBal||0; totals.BNB += bnbBal||0; totals.POLY += polyBal||0; totals.BASE += baseBal||0;
+
+    const row=document.createElement("tr");
+    row.innerHTML=`<td>${addr}</td>
+      <td class="${ethBal===null?'error':ethBal===0?'zero':''}">${ethBal===null?'Error':ethBal.toFixed(4)}</td>
+      <td class="${ethTx===null?'error':ethTx===0?'zero':''}">${ethTx===null?'Error':ethTx}</td>
+      <td class="${bnbBal===null?'error':bnbBal===0?'zero':''}">${bnbBal===null?'Error':bnbBal.toFixed(4)}</td>
+      <td class="${bnbTx===null?'error':bnbTx===0?'zero':''}">${bnbTx===null?'Error':bnbTx}</td>
+      <td class="${polyBal===null?'error':polyBal===0?'zero':''}">${polyBal===null?'Error':polyBal.toFixed(4)}</td>
+      <td class="${polyTx===null?'error':polyTx===0?'zero':''}">${polyTx===null?'Error':polyTx}</td>
+      <td class="${baseBal===null?'error':baseBal===0?'zero':''}">${baseBal===null?'Error':baseBal.toFixed(4)}</td>
+      <td class="${baseTx===null?'error':baseTx===0?'zero':''}">${baseTx===null?'Error':baseTx}</td>`;
     tbody.appendChild(row);
-
-    // Optional throttle to avoid API rate limits
-    await new Promise(r=>setTimeout(r,200));
+    await new Promise(r=>setTimeout(r,150)); // throttle
   }
 
-  filterTable(); 
+  // Add totals row
+  const totalRow=document.createElement("tr");
+  totalRow.id="totalsRow";
+  totalRow.innerHTML=`<td>Total</td>
+    <td>${totals.ETH.toFixed(4)}</td><td>-</td>
+    <td>${totals.BNB.toFixed(4)}</td><td>-</td>
+    <td>${totals.POLY.toFixed(4)}</td><td>-</td>
+    <td>${totals.BASE.toFixed(4)}</td><td>-</td>`;
+  tbody.prepend(totalRow);
+
+  filterTable();
 }
 
 // ---- FILTERS ----
@@ -136,32 +123,62 @@ document.getElementById("filterBalance").addEventListener("change", filterTable)
 document.getElementById("filterTx").addEventListener("change", filterTable);
 
 function filterTable(){
-  const filterBalance = document.getElementById("filterBalance").checked;
-  const filterTx = document.getElementById("filterTx").checked;
-  const rows = document.querySelectorAll("#walletTable tr");
+  const filterBalance=document.getElementById("filterBalance").checked;
+  const filterTx=document.getElementById("filterTx").checked;
+  const rows=document.querySelectorAll("#walletTable tr");
 
-  rows.forEach(row=>{
-    const cols = row.querySelectorAll("td");
+  rows.forEach((row,i)=>{
+    if(row.id==="totalsRow") return;
+    const cols=row.querySelectorAll("td");
     if(cols.length===9){
-      const eth = parseFloat(cols[1].textContent);
-      const ethTx = parseInt(cols[2].textContent);
-      const bnb = parseFloat(cols[3].textContent);
-      const bnbTx = parseInt(cols[4].textContent);
-      const poly = parseFloat(cols[5].textContent);
-      const polyTx = parseInt(cols[6].textContent);
-      const base = parseFloat(cols[7].textContent);
-      const baseTx = parseInt(cols[8].textContent);
-
+      const balances=[1,3,5,7].map(i=>parseFloat(cols[i].textContent)||0);
+      const txs=[2,4,6,8].map(i=>parseInt(cols[i].textContent)||0);
       let show=true;
-      if(filterBalance && eth+bnb+poly+base===0) show=false;
-      if(filterTx && ethTx+bnbTx+polyTx+baseTx===0) show=false;
-      row.style.display = show ? "" : "none";
+      if(filterBalance && balances.reduce((a,b)=>a+b,0)===0) show=false;
+      if(filterTx && txs.reduce((a,b)=>a+b,0)===0) show=false;
+      row.style.display=show?"":"none";
     }
   });
 }
 
-// ---- INIT ----
+// ---- SORTABLE COLUMNS ----
+let sortDirection=[];
+document.querySelectorAll("th[data-col]").forEach(th=>{
+  sortDirection[th.dataset.col]=true;
+  th.addEventListener("click", ()=>{
+    const col=parseInt(th.dataset.col);
+    const tbody=document.getElementById("walletTable");
+    const rows=Array.from(tbody.querySelectorAll("tr")).filter(r=>r.id!=="totalsRow");
+    rows.sort((a,b)=>{
+      const aVal=parseFloat(a.children[col].textContent)||0;
+      const bVal=parseFloat(b.children[col].textContent)||0;
+      return sortDirection[col]?(aVal-bVal):(bVal-aVal);
+    });
+    rows.forEach(r=>tbody.appendChild(r));
+    sortDirection[col]=!sortDirection[col];
+  });
+});
+
+// ---- EXPORT CSV ----
+document.getElementById("exportCSV").addEventListener("click", ()=>{
+  const rows=document.querySelectorAll("#walletTable tr");
+  let csv="";
+  rows.forEach(r=>{
+    const cols=r.querySelectorAll("td");
+    const rowData=[];
+    cols.forEach(c=>rowData.push('"'+c.textContent+'"'));
+    csv+=rowData.join(",")+"\n";
+  });
+  const blob=new Blob([csv],{type:"text/csv"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download="wallets.csv"; a.click();
+  URL.revokeObjectURL(url);
+});
+
+// ---- AUTO REFRESH ----
 loadWallets();
+setInterval(loadWallets,180000);
 </script>
 </body>
 </html>
