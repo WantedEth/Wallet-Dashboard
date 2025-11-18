@@ -17,6 +17,10 @@ th { background:#007bff; color:white; cursor:pointer; position:sticky; top:0; }
 tbody tr:hover { background:#f0f4ff; }
 .pagination { margin-top:10px; text-align:center; }
 .pagination button { margin:0 5px; padding:5px 10px; cursor:pointer; }
+.eth { background:#f0e6ff; }
+.bsc { background:#fff4e6; }
+.poly { background:#e6fff5; }
+.base { background:#ffe6e6; }
 @media(max-width:768px){ table { font-size:0.8em; } .controls{ flex-direction:column; } }
 </style>
 </head>
@@ -35,15 +39,15 @@ tbody tr:hover { background:#f0f4ff; }
 <table>
   <thead>
     <tr>
-      <th data-col="0">Address</th>
-      <th data-col="1">ETH Balance</th>
-      <th data-col="2">ETH Tx</th>
-      <th data-col="3">BNB Balance</th>
-      <th data-col="4">BNB Tx</th>
-      <th data-col="5">Polygon Balance</th>
-      <th data-col="6">Polygon Tx</th>
-      <th data-col="7">Base Balance</th>
-      <th data-col="8">Base Tx</th>
+      <th>Address</th>
+      <th class="eth">ETH Balance</th>
+      <th class="eth">ETH Tx</th>
+      <th class="bsc">BNB Balance</th>
+      <th class="bsc">BNB Tx</th>
+      <th class="poly">Polygon Balance</th>
+      <th class="poly">Polygon Tx</th>
+      <th class="base">Base Balance</th>
+      <th class="base">Base Tx</th>
     </tr>
   </thead>
   <tbody id="table-body">
@@ -58,34 +62,45 @@ tbody tr:hover { background:#f0f4ff; }
 </div>
 
 <script>
+// --- RPC Config ---
 const CHAINS = {
-  Ethereum: {balance:"https://api.etherscan.io/api?module=account&action=balance&address={address}&tag=latest", tx:"https://api.etherscan.io/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"},
-  BSC: {balance:"https://api.bscscan.com/api?module=account&action=balance&address={address}", tx:"https://api.bscscan.com/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"},
-  Polygon: {balance:"https://api.polygonscan.com/api?module=account&action=balance&address={address}", tx:"https://api.polygonscan.com/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"},
-  Base: {balance:"https://base.blockscout.com/api?module=account&action=balance&address={address}", tx:"https://base.blockscout.com/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"}
+  Ethereum: {rpc:"https://cloudflare-eth.com"},
+  BSC: {rpc:"https://bsc-dataseed.binance.org/"},
+  Polygon: {rpc:"https://polygon-rpc.com"},
+  Base: {rpc:"https://mainnet.base.org"}
 };
 
 let addresses = [];
 let walletData = [];
-const pageSize = 25;
+const pageSize = 100;
 let currentPage = 1;
 
-// Fetch helpers
-async function fetchJSON(url){ try{ const res=await fetch(url); return await res.json(); }catch(e){ return null; } }
-async function getBalance(chain,address){
-  const url = CHAINS[chain].balance.replace("{address}", address);
-  const data = await fetchJSON(url);
-  if(data && data.result) return typeof data.result==="string"? (data.result.startsWith("0x")? parseInt(data.result,16)/1e18 : parseFloat(data.result)/1e18) : parseFloat(data.result)/1e18;
-  return null;
-}
-async function getTxCount(chain,address){
-  const url = CHAINS[chain].tx.replace("{address}", address);
-  const data = await fetchJSON(url);
-  if(data && data.result) return Array.isArray(data.result)? data.result.length : 0;
-  return null;
+// Fetch RPC JSON
+async function rpcCall(chain, method, params){
+  try{
+    const res = await fetch(CHAINS[chain].rpc, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({jsonrpc:"2.0", method, params, id:1})
+    });
+    const data = await res.json();
+    return data.result;
+  }catch(e){ return null; }
 }
 
-// Load wallets from uploaded file
+// Get balance
+async function getBalance(chain,address){
+  const result = await rpcCall(chain,"eth_getBalance",[address,"latest"]);
+  return result? parseInt(result,16)/1e18 : null;
+}
+
+// Get transaction count
+async function getTxCount(chain,address){
+  const result = await rpcCall(chain,"eth_getTransactionCount",[address,"latest"]);
+  return result? parseInt(result,16) : null;
+}
+
+// Load wallets from file
 document.getElementById('loadFile').addEventListener('click', ()=>{
   const file = document.getElementById('fileInput').files[0];
   if(!file){ alert("Please select a file"); return; }
@@ -112,11 +127,11 @@ async function loadWalletData(){
     ]);
     walletData.push({addr, ethBal, ethTx, bnbBal, bnbTx, polyBal, polyTx, baseBal, baseTx});
   }
-  currentPage = 1;
+  currentPage=1;
   renderTable();
 }
 
-// Render table with pagination and filters
+// Render table
 function renderTable(){
   const tbody = document.getElementById("table-body");
   tbody.innerHTML = "";
@@ -132,7 +147,7 @@ function renderTable(){
   });
 
   const start = (currentPage-1)*pageSize;
-  const pageWallets = filtered.slice(start, start+pageSize);
+  const pageWallets = filtered.slice(start,start+pageSize);
 
   if(pageWallets.length===0){
     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">No wallets to display</td></tr>`;
@@ -142,14 +157,14 @@ function renderTable(){
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>${w.addr}</td>
-      <td>${w.ethBal===null?'Error':w.ethBal.toFixed(4)}</td>
-      <td>${w.ethTx===null?'Error':w.ethTx}</td>
-      <td>${w.bnbBal===null?'Error':w.bnbBal.toFixed(4)}</td>
-      <td>${w.bnbTx===null?'Error':w.bnbTx}</td>
-      <td>${w.polyBal===null?'Error':w.polyBal.toFixed(4)}</td>
-      <td>${w.polyTx===null?'Error':w.polyTx}</td>
-      <td>${w.baseBal===null?'Error':w.baseBal.toFixed(4)}</td>
-      <td>${w.baseTx===null?'Error':w.baseTx}</td>
+      <td class="eth">${w.ethBal===null?'Error':w.ethBal.toFixed(4)}</td>
+      <td class="eth">${w.ethTx===null?'Error':w.ethTx}</td>
+      <td class="bsc">${w.bnbBal===null?'Error':w.bnbBal.toFixed(4)}</td>
+      <td class="bsc">${w.bnbTx===null?'Error':w.bnbTx}</td>
+      <td class="poly">${w.polyBal===null?'Error':w.polyBal.toFixed(4)}</td>
+      <td class="poly">${w.polyTx===null?'Error':w.polyTx}</td>
+      <td class="base">${w.baseBal===null?'Error':w.baseBal.toFixed(4)}</td>
+      <td class="base">${w.baseTx===null?'Error':w.baseTx}</td>
     `;
     tbody.appendChild(row);
   }
@@ -159,12 +174,13 @@ function renderTable(){
 
 // Pagination buttons
 document.getElementById("prev").onclick = ()=>{ if(currentPage>1){ currentPage--; renderTable(); } };
-document.getElementById("next").onclick = ()=>{ currentPage++; renderTable(); };
+document.getElementById("next").onclick = ()=>{ if(currentPage*pageSize<walletData.length){ currentPage++; renderTable(); } };
 
 // Filters and search
 document.getElementById("search").addEventListener("input",()=>{ currentPage=1; renderTable(); });
 document.getElementById("filterNonZero").addEventListener("change",()=>{ currentPage=1; renderTable(); });
 document.getElementById("filterTx").addEventListener("change",()=>{ currentPage=1; renderTable(); });
+
 </script>
 </body>
 </html>
