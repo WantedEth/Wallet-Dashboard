@@ -3,24 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <title>💎 Wallet Dashboard | Multi-Chain Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#f5f7fa; margin:0; padding:0; }
-  header { background:#2b2b2b; color:white; text-align:center; padding:20px 0; box-shadow:0 2px 5px rgba(0,0,0,0.2);}
-  h1 { margin:0; font-size:2em; }
-  main { padding:20px; max-width:1400px; margin:auto; }
-  .filters { margin-bottom:15px; }
-  .filters label { margin-right:20px; font-weight:500; }
-  button { margin-left:20px; padding:5px 12px; font-weight:500; background:#4a90e2; color:white; border:none; border-radius:4px; cursor:pointer;}
+  header { background:#2b2b2b; color:white; text-align:center; padding:15px 0; box-shadow:0 2px 5px rgba(0,0,0,0.2);}
+  h1 { margin:0; font-size:1.6em; }
+  main { padding:15px; max-width:1000px; margin:auto; }
+  .filters { margin-bottom:10px; display:flex; flex-wrap:wrap; align-items:center; }
+  .filters label { margin-right:15px; font-weight:500; font-size:0.9em; }
+  button { margin-left:10px; padding:5px 10px; font-weight:500; background:#4a90e2; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.9em;}
   button:hover { background:#357ABD; }
-  table { width:100%; border-collapse: collapse; background:white; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
-  th, td { border:1px solid #ddd; padding:10px; text-align:center; font-size:0.95em; }
+  #lastUpdated { margin-left:auto; font-size:0.8em; color:#555; }
+
+  table { width:100%; border-collapse: collapse; background:white; box-shadow:0 2px 5px rgba(0,0,0,0.1); display:block; overflow-x:auto; }
+  th, td { border:1px solid #ddd; padding:8px; text-align:center; font-size:0.85em; min-width:70px; }
   th { background:#4a90e2; color:white; position:sticky; top:0; z-index:1; cursor:pointer; user-select:none; }
   tbody tr:hover { background:#f0f4ff; }
   td.error { color:red; font-weight:bold; }
   td.zero { color:#999; }
   .loading { text-align:center; font-style:italic; color:#555; }
   #totalsRow { font-weight:bold; background:#eef4ff; }
-  #lastUpdated { float:right; font-size:0.9em; color:#555; }
+
+  @media(max-width:600px){
+    .filters { flex-direction:column; align-items:flex-start; }
+    button { margin:5px 0; }
+    th, td { padding:6px; font-size:0.75em; }
+  }
 </style>
 </head>
 <body>
@@ -113,10 +121,9 @@ async function loadWallets(){
       <td class="${baseBal===null?'error':baseBal===0?'zero':''}">${baseBal===null?'Error':baseBal.toFixed(4)}</td>
       <td class="${baseTx===null?'error':baseTx===0?'zero':''}">${baseTx===null?'Error':baseTx}</td>
     `;
-    await new Promise(r=>setTimeout(r,150)); // throttle to avoid API limits
+    await new Promise(r=>setTimeout(r,150));
   }
 
-  // Add totals row
   const totalRow = document.createElement("tr");
   totalRow.id="totalsRow";
   totalRow.innerHTML = `<td>Total</td>
@@ -127,19 +134,16 @@ async function loadWallets(){
   tbody.prepend(totalRow);
 
   document.getElementById("lastUpdated").textContent = "Last updated: "+new Date().toLocaleTimeString();
-
   filterTable();
 }
 
 // ---- FILTERS ----
 document.getElementById("filterBalance").addEventListener("change", filterTable);
 document.getElementById("filterTx").addEventListener("change", filterTable);
-
 function filterTable(){
   const filterBalance=document.getElementById("filterBalance").checked;
   const filterTx=document.getElementById("filterTx").checked;
   const rows=document.querySelectorAll("#walletTable tr");
-
   rows.forEach((row)=>{
     if(row.id==="totalsRow") return;
     const cols=row.querySelectorAll("td");
@@ -191,7 +195,7 @@ document.getElementById("exportCSV").addEventListener("click", ()=>{
 
 // ---- AUTO REFRESH ----
 loadWallets();
-setInterval(loadWallets,180000); // refresh every 3 mins
+setInterval(loadWallets,180000);
 </script>
 
 </body>
