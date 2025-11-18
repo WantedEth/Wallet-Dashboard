@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Multi-Chain Wallet Dashboard</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; background:#f9f9f9; }
+  h1 { text-align:center; margin-bottom: 10px; }
+  table { width:100%; border-collapse: collapse; margin-top:20px; }
+  th, td { border:1px solid #ddd; padding:8px; text-align:center; }
+  th { background:#f4f4f4; }
+  input { margin-right:10px; }
+</style>
+</head>
+<body>
+
+<h1>Multi-Chain Wallet Dashboard</h1>
+
+<label><input type="checkbox" id="filterBalance"> Show wallets with non-zero balance</label>
+<label><input type="checkbox" id="filterTx"> Show wallets with transactions</label>
+
+<table>
+  <thead>
+    <tr>
+      <th>Address</th>
+      <th>ETH Balance</th>
+      <th>ETH Tx Count</th>
+      <th>BNB Balance</th>
+      <th>BNB Tx Count</th>
+      <th>Polygon Balance</th>
+      <th>Polygon Tx Count</th>
+      <th>Base Balance</th>
+      <th>Base Tx Count</th>
+    </tr>
+  </thead>
+  <tbody id="walletTable">
+    <tr><td colspan="9">Loading...</td></tr>
+  </tbody>
+</table>
+
+<script>
+// ---- CHAINS CONFIG ----
+const CHAINS = {
+  Ethereum: {
+    balance: "https://api.etherscan.io/api?module=account&action=balance&address={address}&tag=latest",
+    txcount: "https://api.etherscan.io/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"
+  },
+  BSC: {
+    balance: "https://api.bscscan.com/api?module=account&action=balance&address={address}",
+    txcount: "https://api.bscscan.com/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"
+  },
+  Polygon: {
+    balance: "https://api.polygonscan.com/api?module=account&action=balance&address={address}",
+    txcount: "https://api.polygonscan.com/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"
+  },
+  Base: {
+    balance: "https://base.blockscout.com/api?module=account&action=balance&address={address}",
+    txcount: "https://base.blockscout.com/api?module=account&action=txlist&address={address}&page=1&offset=1&sort=desc"
+  }
+};
+
+// ---- FETCH BALANCE ----
+async function getBalance(chain, address){
+  try{
+    const url = CHAINS[chain].balance.replace("{address}", address);
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.result){
+      if(typeof data.result==="string") return data.result.startsWith("0x") ? parseInt(data.result,16)/1e18 : parseFloat(data.result)/1e18;
+      return parseFloat(data.result)/1e18;
+    }
+  }catch(e){ }
+  return 0;
+}
+
+// ---- FETCH TX COUNT ----
+async function getTxCount(chain,address){
+  try{
+    const url = CHAINS[chain].txcount.replace("{address}", address);
+    const res = await fetch(url);
+    const data = await res.json();
+    return data.result ? data.result.length : 0;
+  }catch(e){ }
+  return 0;
+}
+
+// ---- LOAD ADDRESSES FROM addresses.txt ----
+async function loadAddresses(){
+  try{
+    const resp = await fetch("https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/addresses.txt");
+    const text = await resp.text();
+    return text.split("\n").map(a=>a.trim()).filter(a=>a!=="");
+  }catch(e){ alert("Failed to load addresses.txt"); return []; }
+}
+
+// ---- LOAD WALLETS DATA ----
+async function loadWallets(){
+  const tbody = document.getElementById("walletTable");
+  tbody.innerHTML = "<tr><td colspan='9'>Loading...</td></tr>";
+
+  const addresses = await loadAddresses();
+
+  for(const addr of addresses){
+    const ethBal = await getBalance("Ethereum", addr);
+    const ethTx = await getTxCount("Ethereum", addr);
+    const bnbBal = await getBalance("BSC", addr);
+    const bnbTx = await getTxCount("BSC", addr);
+    const polyBal = await getBalance("Polygon", addr);
+    const polyTx = await getTxCount("Polygon", addr);
+    const baseBal = await getBalance("Base", addr);
+    const baseTx = await getTxCount("Base", addr);
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${addr}</td>
+      <td>${ethBal.toFixed(4)}</td>
+      <td>${ethTx}</td>
+      <td>${bnbBal.toFixed(4)}</td>
+      <td>${bnbTx}</td>
+      <td>${polyBal.toFixed(4)}</td>
+      <td>${polyTx}</td>
+      <td>${baseBal.toFixed(4)}</td>
+      <td>${baseTx}</td>
+    `;
+    tbody.appendChild(row);
+
+    // Optional throttle to avoid API rate limits
+    await new Promise(r=>setTimeout(r,200));
+  }
+
+  filterTable(); 
+}
+
+// ---- FILTERS ----
+document.getElementById("filterBalance").addEventListener("change", filterTable);
+document.getElementById("filterTx").addEventListener("change", filterTable);
+
+function filterTable(){
+  const filterBalance = document.getElementById("filterBalance").checked;
+  const filterTx = document.getElementById("filterTx").checked;
+  const rows = document.querySelectorAll("#walletTable tr");
+
+  rows.forEach(row=>{
+    const cols = row.querySelectorAll("td");
+    if(cols.length===9){
+      const eth = parseFloat(cols[1].textContent);
+      const ethTx = parseInt(cols[2].textContent);
+      const bnb = parseFloat(cols[3].textContent);
+      const bnbTx = parseInt(cols[4].textContent);
+      const poly = parseFloat(cols[5].textContent);
+      const polyTx = parseInt(cols[6].textContent);
+      const base = parseFloat(cols[7].textContent);
+      const baseTx = parseInt(cols[8].textContent);
+
+      let show=true;
+      if(filterBalance && eth+bnb+poly+base===0) show=false;
+      if(filterTx && ethTx+bnbTx+polyTx+baseTx===0) show=false;
+      row.style.display = show ? "" : "none";
+    }
+  });
+}
+
+// ---- INIT ----
+loadWallets();
+</script>
+</body>
+</html>
